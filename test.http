@@ -1,0 +1,21 @@
+### Test Recommendations
+POST https://smartfinance-ai.manwaarullahb.workers.dev/api/recommendations
+Content-Type: application/json
+
+{
+  "loanAmount": 50000,
+  "monthlyIncome": 3000,
+  "monthlyExpenses": 2000,
+  "country": "USA",
+  "university": "Example University"
+}
+
+### Test Scholarship Search
+POST https://smartfinance-ai.manwaarullahb.workers.dev/api/scholarships
+Content-Type: application/json
+
+{
+  "country": "USA",
+  "studyLevel": "Undergraduate",
+  "amount": 20000
+} 
