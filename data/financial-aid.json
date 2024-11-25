@@ -1,0 +1,45 @@
+{
+  "scholarships": [
+    {
+      "id": "sch-001",
+      "name": "Global Student Excellence Award",
+      "amount": 10000,
+      "country": "USA",
+      "criteria": "International students with GPA > 3.5",
+      "deadline": "2024-12-31"
+    }
+  ],
+  "grants": [
+    {
+      "id": "gnt-001",
+      "program": "Federal Pell Grant",
+      "maxAmount": 6895,
+      "eligibility": "Undergraduate students with financial need",
+      "country": "USA"
+    }
+  ],
+  "investmentStrategies": [
+    {
+      "id": "inv-001",
+      "type": "Index Fund",
+      "riskLevel": "Low",
+      "minAmount": 100,
+      "description": "Low-cost diversified investment suitable for students",
+      "studentFriendly": true
+    }
+  ],
+  "costOfLiving": [
+    {
+      "id": "col-001",
+      "country": "USA",
+      "city": "New York",
+      "averageRent": 2500,
+      "monthlyExpenses": 1200,
+      "studentDiscounts": [
+        "Student MetroCard",
+        "ISIC Card Benefits",
+        "Museum Student Passes"
+      ]
+    }
+  ]
+} 
