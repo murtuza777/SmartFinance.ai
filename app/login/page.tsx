@@ -2,196 +2,239 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { ArrowRight, Eye, EyeOff, Loader2, UserCircle2 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { signInAsGuest } from '@/lib/guest-auth'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useAuth } from '@/contexts/AuthContext'
+import { signInAsGuest } from '@/lib/guest-auth'
 import { BrandIdentity } from '@/components/BrandIdentity'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { signIn, signUp, user, isGuest, refreshUser } = useAuth()
-  const [isLogin, setIsLogin] = useState(true)
+  const { signIn, signUp, refreshUser, user, isGuest } = useAuth()
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [showGuestDialog, setShowGuestDialog] = useState(false)
   const [guestName, setGuestName] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
 
   useEffect(() => {
     if (user || isGuest) {
       router.replace('/dashboard')
     }
-  }, [user, isGuest, router])
+  }, [isGuest, router, user])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleAuthSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     setError('')
-    setIsLoading(true)
-
+    setLoading(true)
     try {
-      if (isLogin) {
-        await signIn(email, password)
+      if (mode === 'login') {
+        await signIn(email.trim(), password)
+        router.push('/dashboard')
       } else {
-        await signUp(email, password)
+        await signUp(email.trim(), password)
+        router.push('/onboarding')
       }
-      router.push('/dashboard')
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Authentication failed')
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Authentication failed')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
-  }
-
-  const handleGuestLoginClick = () => {
-    setShowGuestDialog(true)
   }
 
   const handleGuestLogin = async () => {
-    if (!guestName.trim()) {
-      return
-    }
-    
-    setIsLoading(true)
+    if (!guestName.trim()) return
+    setLoading(true)
+    setError('')
     try {
-      await signInAsGuest(guestName.trim());
+      await signInAsGuest(guestName.trim())
       await refreshUser()
       setShowGuestDialog(false)
       router.push('/dashboard')
-    } catch (error) {
-      console.error('Guest login failed:', error);
-      alert('Failed to login as guest. Please try again.');
+    } catch {
+      setError('Guest login failed')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
-  };
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      {/* Background effects */}
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyan-900/20 via-black to-black" />
+  }
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Card className="w-[400px] bg-black/80 backdrop-blur-lg border-cyan-500/30">
-          <CardHeader>
-            <div className="mb-2">
-              <BrandIdentity size={32} textClassName="text-2xl font-bold text-cyan-400" />
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_5%_10%,#0891b22f,transparent_42%),radial-gradient(circle_at_100%_0%,#f59e0b1f,transparent_32%),linear-gradient(#020617,#020617)] text-slate-100">
+      <div className="mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          className="hidden lg:flex flex-col justify-between p-10 border-r border-cyan-500/20 bg-slate-950/30"
+        >
+          <BrandIdentity size={38} textClassName="text-3xl font-semibold text-cyan-300" />
+          <div>
+            <h1 className="text-4xl leading-tight font-semibold">
+              Student finance, tracked with data.
+            </h1>
+            <p className="mt-4 text-slate-300 max-w-md">
+              Sign in to access real financial analytics from your Cloudflare backend and get personalized guidance.
+            </p>
+          </div>
+          <div className="rounded-xl border border-cyan-500/20 bg-slate-900/50 p-5 text-sm text-slate-300">
+            <p className="font-medium text-cyan-200">What you get after login</p>
+            <ul className="mt-3 space-y-2">
+              <li>Live financial summary from D1</li>
+              <li>Onboarding with profile and loan setup</li>
+              <li>AI advisor and budgeting insights</li>
+            </ul>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="flex items-center justify-center p-6"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-cyan-500/20 bg-slate-900/70 backdrop-blur p-7">
+            <div className="mb-6">
+              <BrandIdentity size={30} textClassName="text-2xl font-semibold text-cyan-300 lg:hidden" />
+              <h2 className="text-2xl font-semibold mt-4">
+                {mode === 'login' ? 'Sign in to BurryAI' : 'Create your account'}
+              </h2>
+              <p className="text-slate-300 mt-2">
+                {mode === 'login'
+                  ? 'Continue with your account to open the dashboard.'
+                  : 'Create your account and start onboarding.'}
+              </p>
             </div>
-            <CardTitle className="text-xl text-cyan-500">
-              {isLogin ? 'Welcome Back' : 'Create Your Account'}
-            </CardTitle>
-            <CardDescription className="text-gray-300">
-              {isLogin 
-                ? 'Access your AI-powered financial insights' 
-                : 'Start your student finance journey with BurryAI'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+
+            <form className="space-y-4" onSubmit={handleAuthSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-200">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="user@university.edu"
-                  className="bg-gray-900 text-white placeholder:text-gray-500"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="student@university.edu"
+                  className="bg-slate-950/70 border-cyan-500/30"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-200">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-gray-900 text-white"
-                  required
-                />
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    minLength={8}
+                    className="bg-slate-950/70 border-cyan-500/30 pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    aria-label="Toggle password visibility"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-              <Button 
-                type="submit" 
-                className="w-full bg-cyan-500 hover:bg-cyan-600"
-                disabled={isLoading}
+
+              {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
               >
-                {isLoading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
+                {loading ? (
+                  <span className="inline-flex items-center">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Working...
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center">
+                    {mode === 'login' ? 'Sign In' : 'Create Account'}
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </span>
+                )}
               </Button>
-              <Button 
+
+              <Button
                 type="button"
-                className="w-full bg-gray-700 hover:bg-gray-600 mt-4"
-                onClick={handleGuestLoginClick}
+                variant="outline"
+                onClick={() => setShowGuestDialog(true)}
+                className="w-full border-slate-700 bg-slate-900 hover:bg-slate-800"
               >
+                <UserCircle2 className="h-4 w-4 mr-2" />
                 Continue as Guest
               </Button>
-              {error ? (
-                <p className="text-sm text-red-400 text-center">{error}</p>
-              ) : null}
-              <div className="text-center">
+
+              <p className="text-sm text-center text-slate-300 pt-1">
+                {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
                 <button
                   type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-cyan-500 hover:text-cyan-400 text-sm"
+                  onClick={() => setMode((prev) => (prev === 'login' ? 'signup' : 'login'))}
+                  className="text-cyan-300 hover:text-cyan-200 font-medium"
                 >
-                  {isLogin 
-                    ? "Don't have an account? Sign up" 
-                    : "Already have an account? Sign in"}
+                  {mode === 'login' ? 'Create one' : 'Sign in'}
                 </button>
-              </div>
+              </p>
             </form>
-          </CardContent>
-        </Card>
-      </motion.div>
-      
+          </div>
+        </motion.div>
+      </div>
+
       <Dialog open={showGuestDialog} onOpenChange={setShowGuestDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogTitle>Enter Your Name</DialogTitle>
-          <DialogDescription>
-            Please enter your name to continue as a guest.
+        <DialogContent className="sm:max-w-[420px] bg-slate-950 text-slate-100 border border-cyan-500/20">
+          <DialogTitle>Continue as guest</DialogTitle>
+          <DialogDescription className="text-slate-300">
+            Enter a display name. Guest mode does not persist financial data to your account.
           </DialogDescription>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label htmlFor="guest-name" className="text-gray-200">Name</Label>
+              <Label htmlFor="guestName">Name</Label>
               <Input
-                id="guest-name"
+                id="guestName"
                 value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                placeholder="Enter your name"
-                className="bg-gray-900 text-white placeholder:text-gray-500"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && guestName.trim()) {
-                    handleGuestLogin()
+                onChange={(event) => setGuestName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    void handleGuestLogin()
                   }
                 }}
+                placeholder="Alex"
+                className="bg-slate-900 border-cyan-500/30"
                 autoFocus
               />
             </div>
             <div className="flex justify-end gap-2">
               <Button
+                type="button"
                 variant="outline"
+                className="border-slate-700 bg-slate-900 hover:bg-slate-800"
                 onClick={() => {
                   setShowGuestDialog(false)
                   setGuestName('')
                 }}
-                className="bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700"
               >
                 Cancel
               </Button>
               <Button
-                onClick={handleGuestLogin}
-                disabled={!guestName.trim() || isLoading}
-                className="bg-cyan-500 hover:bg-cyan-600"
+                type="button"
+                onClick={() => void handleGuestLogin()}
+                disabled={loading || !guestName.trim()}
+                className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
               >
-                {isLoading ? 'Logging in...' : 'Continue'}
+                Continue
               </Button>
             </div>
           </div>
