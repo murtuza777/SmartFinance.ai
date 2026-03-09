@@ -1,256 +1,450 @@
-# **SmartFinance.AI**  
-### *AI-Powered Student Finance Management*  
-
-SmartFinance.AI is an intelligent financial management platform designed specifically for students, leveraging AI to provide personalized financial guidance, loan management, and expense optimization.
+Below is a **clean README** you can use for the repo first. After that, I’ll give you a **Codex prompt** that will scaffold **Cloudflare Auth + D1 database + Workers API** for the project.
 
 ---
 
-## 🌟 **Key Features**
+# README — BurryAI
 
-### **1. AI Financial Advisor**
-- Personalized financial health analysis  
-- Smart spending recommendations  
-- Foreign country cost-of-living adjustments  
-- Loan repayment optimization  
-- Government grants and aid suggestions  
-- Investment opportunities (stocks, crypto)  
-- Extra earning recommendations  
+## BurryAI
 
-### **2. Financial Timelines**
-- Comprehensive cash flow visualization  
-- Loan payment deadline tracking  
-- Income stream monitoring  
-- Expense tracking  
-- Investment return projections  
+**AI Financial Advisor for Students**
 
-### **3. Cost Cutter**
-- AI-powered expense optimization  
-- Unnecessary cost identification  
-- Smart budgeting recommendations  
-- Location-based cost analysis  
+BurryAI is an **AI-powered financial assistant designed for students**.
+It analyzes a user's financial profile, expenses, and goals to provide **personalized financial insights, budgeting strategies, and extra earning recommendations**.
 
-### **4. Financial Insights**
-- Interactive data visualizations  
-- Cash flow analytics  
-- Expense pattern analysis  
-- Savings projections  
-- Risk assessment metrics  
+The platform combines **agentic AI, financial analytics, and real-time web retrieval** to help students make smarter financial decisions.
+
+Inspired by analytical investors like Michael Burry from The Big Short, BurryAI acts as a **personal financial analyst for everyday users**.
 
 ---
 
-## 🛠️ **Technology Stack**
+# Core Features
 
-### **Frontend**
-- **Next.js 14** (App Router)  
-- **TypeScript**  
-- **Tailwind CSS**  
-- **Framer Motion**  
-- **Three.js** (3D visualizations)  
-- **Chart.js** (Data visualization)  
+## 1. AI Financial Advisor
 
-### **Backend**
-- **Cloudflare Workers**  
-- **Vector Database** (Cloudflare Vectorize)  
-- **KV Storage**  
-- **Firebase** (Auth & Firestore)  
+The central **Financial Agent** analyzes user financial data and provides recommendations.
 
-### **AI/ML**
-- **RAG** (Retrieval-Augmented Generation)  
-- **Google Gemini 2.5 Pro** (AI Financial Advisor - Primary model)
-- **Cloudflare AI Models**:
-  - `@cf/meta/llama-2-7b-chat-int8` (Financial advice)  
-  - `@cf/baai/bge-base-en-v1.5` (Embeddings)  
+Capabilities:
+
+* Personalized financial health analysis
+* Smart spending recommendations
+* Loan repayment optimization
+* Extra earning suggestions (web-powered)
+* AI-powered expense optimization
+* Budget improvement suggestions
+
+The agent combines:
+
+* User financial data
+* Financial knowledge base (RAG)
+* Live web search
 
 ---
 
-## 🏗️ **System Architecture**
+# 2. Expense Tracking
 
-### **High-Level System Design**
+Users can track spending across categories:
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        UI[Next.js Frontend]
-        THR[Three.js Rendering]
-        VIZ[Data Visualization]
-    end
-    subgraph "Edge Computing Layer"
-        CF[Cloudflare Workers]
-        AI[Cloudflare AI]
-        VDB[(Vectorize DB)]
-        KV[(KV Storage)]
-    end
-    subgraph "Authentication Layer"
-        FA[Firebase Auth]
-        FS[(Firestore)]
-    end
-    UI --> CF
-    THR --> UI
-    VIZ --> UI
-    CF --> AI
-    CF --> VDB
-    CF --> KV
-    CF --> FA
+* Food
+* Rent / Hostel
+* Transport
+* Education
+* Subscriptions
+* Miscellaneous
+
+This data powers the financial insights and AI recommendations.
+
+---
+
+# 3. Financial Timeline
+
+Shows upcoming financial events:
+
+* Loan payment deadlines
+* Monthly income tracking
+* Expense monitoring
+
+This helps users visualize their financial flow.
+
+---
+
+# 4. Financial Insights Dashboard
+
+Interactive visualizations provide insights into the user’s financial behavior.
+
+Visualizations include:
+
+* Spending categories (pie chart)
+* Monthly cash flow (income vs expenses)
+* Savings progress toward financial goals
+
+---
+
+# 5. AI Cost Cutter
+
+The AI agent analyzes spending patterns and identifies unnecessary expenses.
+
+Example insights:
+
+* Over-spending categories
+* Subscription waste
+* Budget adjustments
+
+---
+
+# 6. Extra Income Recommendations
+
+The agent uses **web-augmented retrieval** to suggest the latest earning opportunities such as:
+
+* freelancing
+* tutoring
+* remote gigs
+* digital work
+* student-friendly side hustles
+
+---
+
+# Architecture Overview
+
 ```
-
-### **RAG Implementation Flow**
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant W as Worker
-    participant V as Vectorize
-    participant KV as KV Store
-    participant LLM as LLaMA-2
-    U->>W: Financial Query
-    W->>V: Search Similar Cases
-    V-->>W: Return Matches
-    W->>KV: Fetch Context Data
-    W->>LLM: Generate Response
-    LLM-->>W: Financial Advice
-    W-->>U: Formatted Response
-```
-
-### **Data Processing Pipeline**
-
-```mermaid
-graph LR
-    subgraph "Data Sources"
-        FD[Financial Data]
-        SD[Scholarship Data]
-        ID[Investment Data]
-    end
-    subgraph "Processing"
-        EMB[Embeddings]
-        VEC[Vector Storage]
-        CTX[Context Builder]
-    end
-    subgraph "Retrieval"
-        QP[Query Processing]
-        VS[Vector Search]
-        RA[Response Assembly]
-    end
-    FD & SD & ID --> EMB
-    EMB --> VEC
-    VEC --> VS
-    VS --> CTX
-    CTX --> RA
-```
-
-### **Component Architecture**
-
-```mermaid
-graph TB
-    subgraph "Frontend Components"
-        DC[Dashboard]
-        AA[AI Advisor]
-        CC[Cost Cutter]
-        TL[Timeline]
-    end
-    subgraph "Edge Services"
-        AIS[AI Service]
-        VS[Vector Search]
-        KVS[KV Storage]
-    end
-    DC --> AIS
-    AA --> AIS
-    CC --> AIS
-    TL --> AIS
-    AIS --> VS
-    AIS --> KVS
+User
+ ↓
+Next.js Frontend
+ ↓
+Cloudflare Workers API
+ ↓
+Financial Agent
+ ↓
+Tools Layer
+ ├ Expense Analyzer
+ ├ Financial Health Calculator
+ ├ Cost Cutter
+ ├ Loan Optimizer
+ └ Web Search Retriever
+ ↓
+Cloudflare D1 Database
 ```
 
 ---
 
-## 🚀 **Deployment**
+# Tech Stack
 
-### **Prerequisites**
-- Node.js 18+
-- Cloudflare Account
-- Firebase Account
-- Environment Variables Setup
+## Frontend
 
-### **Local Development**
-```bash
-# Install dependencies
-npm install
+* Next.js 14
+* TypeScript
+* TailwindCSS
+* ShadCN UI
+* Recharts (analytics visualizations)
 
-# Run development server
-npm run dev
+---
 
-# Run tests
-npm test
+## Backend
 
-# Build for production
-npm run build
+* Cloudflare Workers
+* Hono (API framework)
+
+---
+
+## Database
+
+* Cloudflare D1 (SQL database)
+
+Stores:
+
+* users
+* financial profiles
+* expenses
+* loans
+* AI interaction logs
+
+---
+
+## AI Layer
+
+Large Language Model:
+
+* Google Gemini 2.5 Pro
+
+Responsibilities:
+
+* financial reasoning
+* financial insights
+* cost optimization
+* user recommendations
+
+---
+
+## Agent System
+
+Custom **Tool-based Financial Agent**
+
+Agent tools:
+
+* financial profile retrieval
+* expense analysis
+* financial health scoring
+* cost cutter analysis
+* loan optimization
+* web search for extra earning opportunities
+
+---
+
+## Retrieval System
+
+Hybrid RAG architecture:
+
+Internal Knowledge
+
+* budgeting strategies
+* debt management
+* financial literacy
+
+External Knowledge
+
+* web search for latest opportunities
+
+---
+
+# Database Schema Overview
+
+### users
+
 ```
-
-### **Environment Variables**
-Create a `.env.local` file in the project root with:
-```bash
-# Google Gemini API Key (Required for AI Advisor)
-# Get your API key from: https://ai.google.dev/
-NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
-
-# Cloudflare API Token (for Workers deployment)
-CLOUDFLARE_API_TOKEN=your_token
-
-# Firebase Configuration
-FIREBASE_CONFIG=your_config
-
-# Application URL
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# API Key for Workers (if needed)
-NEXT_PUBLIC_API_KEY=your_api_key_here
-```
-
-#### **Setting up Gemini API Key**
-1. Go to [Google AI Studio](https://ai.google.dev/)
-2. Sign in with your Google account
-3. Click **"Get API Key"** to create a new API key
-4. Copy your API key
-5. Add it to your `.env.local` file as `NEXT_PUBLIC_GEMINI_API_KEY=your_api_key_here`
-6. Restart your development server
-
-**Note:** The `.env.local` file is already in `.gitignore` and will not be committed to the repository.
-
-### **Production Deployment**
-1. Fork this repository
-2. Configure environment variables in Cloudflare Dashboard
-3. Deploy using Cloudflare Pages:
-```bash
-npm run deploy
+id
+email
+name
+created_at
 ```
 
 ---
 
-## 🤝 **Contributing**
+### financial_profiles
 
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### **Development Guidelines**
-- Follow TypeScript best practices
-- Write tests for new features
-- Update documentation as needed
-- Follow the existing code style
+```
+id
+user_id
+country
+student_status
+university
+monthly_income
+financial_goal
+created_at
+```
 
 ---
 
-## 📝 **License**
+### expenses
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```
+id
+user_id
+category
+amount
+date
+```
 
 ---
 
-## 🙏 **Acknowledgments**
+### loans
 
-- Cloudflare for their AI and edge computing platform
-- Firebase for authentication and database services
-- The open-source community for inspiration and tools
+```
+id
+user_id
+loan_amount
+interest_rate
+monthly_payment
+next_payment_date
+```
+
+---
+
+### ai_logs
+
+```
+id
+user_id
+query
+response
+created_at
+```
+
+---
+
+# User Flow
+
+```
+Landing Page
+ ↓
+Sign In / Sign Up
+ ↓
+Onboarding
+ ↓
+Financial Profile Setup
+ ↓
+Dashboard
+ ↓
+Expense Tracking
+ ↓
+AI Financial Advisor
+ ↓
+Financial Insights
+```
+
+---
+
+# Deployment
+
+Frontend
+
+* Vercel
+
+Backend
+
+* Cloudflare Workers
+
+Database
+
+* Cloudflare D1
+
+AI
+
+* Gemini API
+
+---
+
+# Future Enhancements
+
+* automated financial insights
+* smart alerts for overspending
+* savings optimization
+* AI financial planning
+
+---
+
+# Codex Prompt to Setup Backend
+
+Now here is the **prompt you can give Codex** to scaffold the backend.
+
+---
+
+**Prompt for Codex**
+
+```
+Create the backend foundation for a project called "BurryAI".
+
+Stack requirements:
+
+Backend
+- Cloudflare Workers
+- Hono framework
+
+Database
+- Cloudflare D1
+
+Authentication
+- Cloudflare Access / JWT-based session auth
+
+Language
+- TypeScript
+
+Environment
+- Wrangler CLI
+
+Project requirements:
+
+1. Initialize a Cloudflare Workers project with Hono.
+
+2. Configure Cloudflare D1 database.
+
+3. Create database migration files with the following tables:
+
+users
+- id (uuid primary key)
+- email
+- name
+- created_at
+
+financial_profiles
+- id
+- user_id
+- country
+- student_status
+- university
+- monthly_income
+- financial_goal
+- created_at
+
+expenses
+- id
+- user_id
+- category
+- amount
+- date
+
+loans
+- id
+- user_id
+- loan_amount
+- interest_rate
+- monthly_payment
+- next_payment_date
+
+ai_logs
+- id
+- user_id
+- query
+- response
+- created_at
+
+4. Implement API routes using Hono:
+
+POST /auth/login
+POST /auth/signup
+GET /user/profile
+POST /expenses
+GET /expenses
+POST /loans
+GET /financial-summary
+
+5. Implement a service layer for database queries.
+
+6. Create a financial summary service that calculates:
+
+- total income
+- total expenses
+- remaining balance
+- financial health score
+
+7. Use Zod for request validation.
+
+8. Configure environment variables for:
+
+- database binding
+- JWT secret
+- Gemini API key
+
+9. Setup a clean project structure:
+
+src/
+  routes/
+  services/
+  db/
+  middleware/
+  agents/
+
+10. Add instructions for running locally with:
+
+wrangler dev
+
+and deploying with:
+
+wrangler deploy
+```
+
+---
+
+If you want, I can also give you **one extremely powerful thing next**:
+
+A **Financial Agent architecture for BurryAI** (the brain that powers everything).
+
+It will make your project look like a **real AI agent system instead of just a chatbot**, which is very impressive for a final-year project.
