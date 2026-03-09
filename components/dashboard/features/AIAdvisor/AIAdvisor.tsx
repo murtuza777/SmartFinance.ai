@@ -28,7 +28,7 @@ interface AIAdvisorProps {
   }
 }
 
-// Add interface for Gemini API response
+// Gemini API response interface
 interface GeminiResponse {
   candidates: Array<{
     content: {
@@ -36,7 +36,11 @@ interface GeminiResponse {
         text: string;
       }>;
     };
+    finishReason?: string;
   }>;
+  error?: {
+    message: string;
+  };
 }
 
 export function AIAdvisor({ userData }: AIAdvisorProps) {
@@ -153,61 +157,202 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
     setIsLoading(true)
     setSelectedMessage(userMessage)
 
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=AIzaSyC02ExBGWIFc7T4tcPAogisEtjLtdOg7EE`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `As an AI financial advisor for students, analyze this situation:
-                - Monthly Income: $${userData.monthlyIncome}
-                - Monthly Expenses: $${userData.monthlyExpenses}
-                - Country: ${userData.country}
-                
-                User Question: ${inputMessage}
-                
-                Provide specific, actionable advice in plain text. Focus on student-specific financial aid, scholarships, grants, and cost-saving strategies.`
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
-        })
-      })
+    // Use Google Gemini API
+    const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    
+    // Validate API key exists
+    if (!geminiApiKey || geminiApiKey.trim().length === 0) {
+      const errorMessage = `Gemini API key is not configured.
 
-      if (!response.ok) throw new Error('Failed to get response')
-      
-      const data = await response.json() as GeminiResponse
-      
-      // Extract the text response from Gemini's response format
-      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.'
-      
-      const aiMessage: Message = {
-        role: 'assistant',
-        content: aiResponse,
-        timestamp: new Date(),
-        visualData: userMessage.visualData // Keep the same visualization for context
-      }
+To set up the Gemini API key:
+1. Go to https://ai.google.dev/ (Google AI Studio)
+2. Sign in with your Google account
+3. Click "Get API Key" to create a new API key
+4. Copy your API key
+5. Create a .env.local file in the project root
+6. Add: NEXT_PUBLIC_GEMINI_API_KEY=your_api_key_here
+7. Restart your development server
 
-      setMessages(prev => [...prev, aiMessage])
-      setSelectedMessage(aiMessage)
-    } catch (error) {
-      console.error('Error:', error)
+For more information, visit: https://ai.google.dev/tutorials/setup`;
+      
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'I apologize, but I encountered an error. Please try asking your question again.',
+        content: errorMessage,
+        timestamp: new Date(),
+        visualData: { type: null, data: null }
+      }]);
+      setIsLoading(false);
+      return;
+    }
+    
+    // Validate and clean API key
+    const cleanedApiKey = geminiApiKey.trim();
+    
+    try {
+      // Debug: Log API key status (masked for security)
+      if (cleanedApiKey.length > 12) {
+        const keyPrefix = cleanedApiKey.substring(0, 8);
+        const keySuffix = cleanedApiKey.substring(cleanedApiKey.length - 4);
+        console.log(`Using Gemini API key: ${keyPrefix}...${keySuffix} (length: ${cleanedApiKey.length})`);
+      }
+      
+      // Validate API key format (Gemini keys start with 'AIza' and are typically 39 characters)
+      if (cleanedApiKey.length < 20 || !cleanedApiKey.startsWith('AIza')) {
+        throw new Error('Invalid API key format. Gemini API keys should start with "AIza" and be at least 20 characters long.');
+      }
+      
+      const requestBody = {
+        contents: [{
+          parts: [{
+            text: `You are an expert AI financial advisor specializing in student finances. Provide specific, actionable advice about financial aid, scholarships, grants, budgeting, and cost-saving strategies for students.
+
+As an AI financial advisor for students, analyze this situation:
+- Monthly Income: $${userData.monthlyIncome}
+- Monthly Expenses: $${userData.monthlyExpenses}
+- Country: ${userData.country}
+
+User Question: ${inputMessage}
+
+Provide specific, actionable advice in plain text. Focus on student-specific financial aid, scholarships, grants, and cost-saving strategies.`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 8192, // Increased for Gemini 2.5 Pro (supports up to 65,536)
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          }
+        ]
+      };
+
+      // Try different Gemini model names (newer models first)
+      const modelsToTry = [
+        'gemini-2.5-pro',      // Latest and most capable - Gemini 2.5 Pro
+        'gemini-1.5-pro',      // Fallback to 1.5 Pro
+        'gemini-1.5-flash',    // Faster, good for most tasks
+        'gemini-pro'           // Fallback to older model
+      ];
+      
+      let lastError: Error | null = null;
+      
+      for (const model of modelsToTry) {
+        try {
+          console.log(`Trying Gemini API with model: ${model}`);
+          
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${cleanedApiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+          })
+
+          if (response.ok) {
+            const data = await response.json() as GeminiResponse
+            
+            // Check if content was blocked by safety filters
+            if (data.candidates?.[0]?.finishReason === 'SAFETY') {
+              throw new Error('Response was blocked by safety filters. Please try rephrasing your question.');
+            }
+            
+            // Extract the text response from Gemini's response format
+            const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || data.error?.message || 'Sorry, I could not generate a response.'
+            
+            const aiMessage: Message = {
+              role: 'assistant',
+              content: aiResponse,
+              timestamp: new Date(),
+              visualData: userMessage.visualData
+            }
+
+            setMessages(prev => [...prev, aiMessage])
+            setSelectedMessage(aiMessage)
+            setIsLoading(false)
+            return; // Success, exit the function
+          } else {
+            const errorText = await response.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { error: { message: errorText || `HTTP ${response.status}` } };
+            }
+            console.warn(`Model ${model} failed:`, errorData);
+            lastError = new Error(errorData.error?.message || errorData.message || `API error: ${response.status}`);
+            
+            // If it's a 404 (model not found), try next model
+            if (response.status === 404) {
+              continue;
+            }
+            
+            // For other errors, throw immediately
+            throw lastError;
+          }
+        } catch (error) {
+          console.warn(`Error with model ${model}:`, error);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          
+          // If it's a 404 or model not found error, try next model
+          if (error instanceof Error && (error.message.includes('404') || error.message.includes('not found'))) {
+            continue;
+          }
+          
+          // For other errors, throw immediately
+          throw error;
+        }
+      }
+      
+      // If we get here, all models failed
+      throw lastError || new Error('All Gemini model attempts failed')
+    } catch (error) {
+      console.error('Error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      // Provide more helpful error messages
+      let userFriendlyMessage = 'I apologize, but I encountered an error. Please try again.';
+      
+      if (errorMessage.includes('Invalid API Key') || errorMessage.includes('invalid_api_key') || errorMessage.includes('API_KEY_INVALID')) {
+        userFriendlyMessage = `API authentication failed. The Gemini API key appears to be invalid or expired.
+
+To fix this:
+1. Go to https://ai.google.dev/ (Google AI Studio)
+2. Sign in with your Google account
+3. Click "Get API Key" to create or verify your API key
+4. Update the API key in your .env.local file as NEXT_PUBLIC_GEMINI_API_KEY=your_key_here
+5. Restart your development server
+
+For more information, visit: https://ai.google.dev/tutorials/setup`;
+      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+        userFriendlyMessage = `Authentication error. Please verify your Gemini API key is correct and active.
+
+1. Go to https://ai.google.dev/ (Google AI Studio)
+2. Verify your API key is active
+3. Check that the key in .env.local matches your Google AI Studio key
+4. Restart your development server`;
+      } else {
+        userFriendlyMessage = `Error: ${errorMessage}. Please check the console for more details.`;
+      }
+      
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: userFriendlyMessage,
         timestamp: new Date(),
         visualData: { type: null, data: null }
       }])

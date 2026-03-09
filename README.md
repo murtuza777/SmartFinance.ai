@@ -56,6 +56,7 @@ SmartFinance.AI is an intelligent financial management platform designed specifi
 
 ### **AI/ML**
 - **RAG** (Retrieval-Augmented Generation)  
+- **Google Gemini 2.5 Pro** (AI Financial Advisor - Primary model)
 - **Cloudflare AI Models**:
   - `@cf/meta/llama-2-7b-chat-int8` (Financial advice)  
   - `@cf/baai/bge-base-en-v1.5` (Embeddings)  
@@ -185,12 +186,34 @@ npm run build
 ```
 
 ### **Environment Variables**
-Create a `.env.local` file with:
+Create a `.env.local` file in the project root with:
 ```bash
+# Google Gemini API Key (Required for AI Advisor)
+# Get your API key from: https://ai.google.dev/
+NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
+
+# Cloudflare API Token (for Workers deployment)
 CLOUDFLARE_API_TOKEN=your_token
+
+# Firebase Configuration
 FIREBASE_CONFIG=your_config
+
+# Application URL
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# API Key for Workers (if needed)
+NEXT_PUBLIC_API_KEY=your_api_key_here
 ```
+
+#### **Setting up Gemini API Key**
+1. Go to [Google AI Studio](https://ai.google.dev/)
+2. Sign in with your Google account
+3. Click **"Get API Key"** to create a new API key
+4. Copy your API key
+5. Add it to your `.env.local` file as `NEXT_PUBLIC_GEMINI_API_KEY=your_api_key_here`
+6. Restart your development server
+
+**Note:** The `.env.local` file is already in `.gitignore` and will not be committed to the repository.
 
 ### **Production Deployment**
 1. Fork this repository

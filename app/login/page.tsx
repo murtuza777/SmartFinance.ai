@@ -6,13 +6,18 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { motion } from 'framer-motion'
+import { signInAsGuest } from '@/lib/firebase';
 
 export default function LoginPage() {
   const router = useRouter()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showGuestDialog, setShowGuestDialog] = useState(false)
+  const [guestName, setGuestName] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,6 +36,28 @@ export default function LoginPage() {
     }
   }
 
+  const handleGuestLoginClick = () => {
+    setShowGuestDialog(true)
+  }
+
+  const handleGuestLogin = async () => {
+    if (!guestName.trim()) {
+      return
+    }
+    
+    setIsLoading(true)
+    try {
+      await signInAsGuest(guestName.trim());
+      setShowGuestDialog(false)
+      // Reload to update auth context
+      window.location.href = '/dashboard';
+    } catch (error) {
+      console.error('Guest login failed:', error);
+      alert('Failed to login as guest. Please try again.');
+    } finally {
+      setIsLoading(false)
+    }
+  };
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       {/* Background effects */}
@@ -89,7 +116,12 @@ export default function LoginPage() {
               >
                 {isLogin ? 'Sign In' : 'Create Account'}
               </Button>
-
+              <Button 
+                className="w-full bg-gray-700 hover:bg-gray-600 mt-4"
+                onClick={handleGuestLoginClick}
+              >
+                Continue as Guest
+              </Button>
               <div className="text-center">
                 <button
                   type="button"
@@ -105,6 +137,52 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </motion.div>
+      
+      <Dialog open={showGuestDialog} onOpenChange={setShowGuestDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogTitle>Enter Your Name</DialogTitle>
+          <DialogDescription>
+            Please enter your name to continue as a guest.
+          </DialogDescription>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="guest-name" className="text-gray-200">Name</Label>
+              <Input
+                id="guest-name"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder="Enter your name"
+                className="bg-gray-900 text-white placeholder:text-gray-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && guestName.trim()) {
+                    handleGuestLogin()
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowGuestDialog(false)
+                  setGuestName('')
+                }}
+                className="bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleGuestLogin}
+                disabled={!guestName.trim() || isLoading}
+                className="bg-cyan-500 hover:bg-cyan-600"
+              >
+                {isLoading ? 'Logging in...' : 'Continue'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
-} 
+}

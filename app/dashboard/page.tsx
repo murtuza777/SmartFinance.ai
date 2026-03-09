@@ -1,11 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Loader2, AlertTriangle, CheckCircle2, TrendingUp, Briefcase, GraduationCap, DollarSign, CreditCard, PiggyBank, TrendingDown, History, Brain, Scissors, User, Percent, Clock } from 'lucide-react'
 import { Line, Bar, Radar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, RadialLinearScale, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
-import DashboardScene from './DashboardScene'
 import { HolographicButton, HolographicCard } from '@/components/dashboard/HolographicUI'
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +12,9 @@ import { getAIRecommendations } from '@/lib/ai-service'
 import { AIAdvisor } from '@/components/dashboard/features/AIAdvisor/AIAdvisor'
 import { CostCutter } from '@/components/dashboard/features/CostCutter/CostCutter'
 import { FinancialTimeline } from '@/components/dashboard/features/Timeline/FinancialTimeline'
+import { useAuth } from '@/contexts/AuthContext';
+import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 ChartJS.register(
   CategoryScale, 
@@ -152,6 +153,33 @@ export default function Dashboard() {
 
   const [aiData, setAiData] = useState(null)
 
+  // Guest login state
+  const { isGuest, guestUser, upgradeToEmail } = useAuth();
+  const [showUpgradeForm, setShowUpgradeForm] = useState(false);
+  const [upgradeEmail, setUpgradeEmail] = useState('');
+  const [upgradePassword, setUpgradePassword] = useState('');
+  
+  // Update userData with guest name if guest user
+  useEffect(() => {
+    if (guestUser && guestUser.name) {
+      setUserData(prev => ({
+        ...prev,
+        name: guestUser.name
+      }));
+    }
+  }, [guestUser]);
+  
+  const handleUpgrade = async () => {
+    try {
+      await upgradeToEmail(upgradeEmail, upgradePassword);
+      setShowUpgradeForm(false);
+      alert('Account upgraded successfully!');
+    } catch (error) {
+      console.error('Upgrade failed:', error);
+      alert('Failed to upgrade account. Please try again.');
+    }
+  };
+
   useEffect(() => {
     // Simulate data loading
     setTimeout(() => setLoading(false), 2000)
@@ -282,12 +310,62 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Background Scene */}
-      <DashboardScene />
-
+    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white">
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-8">
+        {/* Guest Mode Banner */}
+        {isGuest && guestUser && (
+          <div className="bg-yellow-500/20 border border-yellow-500 p-4 rounded-lg mb-6 flex items-center gap-2">
+            <AlertCircle className="text-yellow-500" />
+            <p className="flex-1">
+              Welcome, <span className="font-semibold text-yellow-400">{guestUser.name}</span>! You are in Guest Mode. Some features are limited.
+            </p>
+            <Button onClick={() => setShowUpgradeForm(true)} className="ml-auto bg-yellow-500 hover:bg-yellow-600 text-black">
+              Upgrade to Full Account
+            </Button>
+          </div>
+        )}
+        
+        {/* Upgrade Form */}
+        {showUpgradeForm && (
+          <div className="p-4 bg-black/80 rounded-lg mb-6 border border-cyan-500/30">
+            <h3 className="text-xl font-bold mb-4 text-cyan-500">Upgrade Account</h3>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-gray-300">Email</Label>
+                <Input 
+                  placeholder="Email" 
+                  value={upgradeEmail} 
+                  onChange={(e) => setUpgradeEmail(e.target.value)}
+                  className="bg-gray-900 text-white border-gray-700"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Password</Label>
+                <Input 
+                  type="password" 
+                  placeholder="Password" 
+                  value={upgradePassword} 
+                  onChange={(e) => setUpgradePassword(e.target.value)}
+                  className="bg-gray-900 text-white border-gray-700"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleUpgrade} className="bg-cyan-500 hover:bg-cyan-600">
+                  Upgrade
+                </Button>
+                <Button 
+                  onClick={() => setShowUpgradeForm(false)} 
+                  variant="outline"
+                  className="bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-4 mb-8">
           {tabs.map((tab) => {
@@ -310,24 +388,12 @@ export default function Dashboard() {
         </div>
 
         {/* Tab Content */}
-        <AnimatePresence mode="wait">
-          {loading ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center justify-center h-[60vh]"
-            >
-              <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
-            </motion.div>
-          ) : (
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
+        {loading ? (
+          <div className="flex items-center justify-center h-[60vh]">
+            <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+          </div>
+        ) : (
+          <div>
               {/* Existing dashboard content */}
               {activeTab === 'dashboard' && (
                 <>
@@ -588,27 +654,17 @@ export default function Dashboard() {
               {/* Existing profile content */}
               {activeTab === 'profile' && (
                 <div className="space-y-6">
-                  {/* Profile Header */}
+                    {/* Profile Header */}
                   <HolographicCard className="relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-purple-500/10" />
                     <div className="relative z-10 flex items-center gap-6">
-                      <motion.div 
-                        className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center"
-                        animate={{ 
-                          boxShadow: ['0 0 20px rgba(6, 182, 212, 0.3)', '0 0 40px rgba(6, 182, 212, 0.5)', '0 0 20px rgba(6, 182, 212, 0.3)']
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
                         <User className="w-12 h-12 text-white" />
-                      </motion.div>
+                      </div>
                       <div>
-                        <motion.h2 
-                          className="text-3xl font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent"
-                          animate={{ opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 3, repeat: Infinity }}
-                        >
+                        <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
                           {userData.name}
-                        </motion.h2>
+                        </h2>
                         <p className="text-gray-400">{userData.email}</p>
                       </div>
                     </div>
@@ -631,11 +687,6 @@ export default function Dashboard() {
                               className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
                               onChange={(e) => setUserData({...userData, name: e.target.value})}
                             />
-                            <motion.div 
-                              className="absolute inset-0 border border-cyan-500/30 rounded-md pointer-events-none"
-                              animate={{ opacity: [0.3, 0.6, 0.3] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                            />
                           </div>
                         </div>
 
@@ -647,11 +698,6 @@ export default function Dashboard() {
                               className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
                               onChange={(e) => setUserData({...userData, email: e.target.value})}
                             />
-                            <motion.div 
-                              className="absolute inset-0 border border-cyan-500/30 rounded-md pointer-events-none"
-                              animate={{ opacity: [0.3, 0.6, 0.3] }}
-                              transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
-                            />
                           </div>
                         </div>
 
@@ -662,11 +708,6 @@ export default function Dashboard() {
                               value={userData.university}
                               className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
                               onChange={(e) => setUserData({...userData, university: e.target.value})}
-                            />
-                            <motion.div 
-                              className="absolute inset-0 border border-cyan-500/30 rounded-md pointer-events-none"
-                              animate={{ opacity: [0.3, 0.6, 0.3] }}
-                              transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
                             />
                           </div>
                         </div>
@@ -692,11 +733,6 @@ export default function Dashboard() {
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                               <span className="text-cyan-500">USD</span>
                             </div>
-                            <motion.div 
-                              className="absolute inset-0 border border-cyan-500/30 rounded-md pointer-events-none"
-                              animate={{ opacity: [0.3, 0.6, 0.3] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                            />
                           </div>
                         </div>
 
@@ -712,11 +748,6 @@ export default function Dashboard() {
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                               <span className="text-cyan-500">USD</span>
                             </div>
-                            <motion.div 
-                              className="absolute inset-0 border border-cyan-500/30 rounded-md pointer-events-none"
-                              animate={{ opacity: [0.3, 0.6, 0.3] }}
-                              transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
-                            />
                           </div>
                         </div>
 
@@ -727,11 +758,6 @@ export default function Dashboard() {
                               value={userData.country}
                               className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
                               onChange={(e) => setUserData({...userData, country: e.target.value})}
-                            />
-                            <motion.div 
-                              className="absolute inset-0 border border-cyan-500/30 rounded-md pointer-events-none"
-                              animate={{ opacity: [0.3, 0.6, 0.3] }}
-                              transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
                             />
                           </div>
                         </div>
@@ -773,10 +799,7 @@ export default function Dashboard() {
                     </HolographicCard>
 
                     {/* Save Changes Button */}
-                    <motion.div 
-                      className="lg:col-span-2 flex justify-end"
-                      whileHover={{ scale: 1.02 }}
-                    >
+                    <div className="lg:col-span-2 flex justify-end">
                       <HolographicButton 
                         onClick={() => {
                           // Handle profile update
@@ -786,13 +809,12 @@ export default function Dashboard() {
                       >
                         Save Changes
                       </HolographicButton>
-                    </motion.div>
+                    </div>
                   </div>
                 </div>
               )}
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
       </div>
     </div>
   )

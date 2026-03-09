@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, updateProfile } from 'firebase/auth';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,3 +18,39 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 export { auth, db }; 
+
+// Simple guest login without Firebase - stores guest name in localStorage
+export async function signInAsGuest(guestName?: string) {
+  try {
+    if (guestName && guestName.trim()) {
+      // Store guest info in localStorage
+      localStorage.setItem('guestName', guestName.trim());
+      localStorage.setItem('isGuest', 'true');
+      localStorage.setItem('guestLoginTime', new Date().toISOString());
+      return { name: guestName.trim(), isGuest: true };
+    }
+    throw new Error('Guest name is required');
+  } catch (error) {
+    console.error("Error signing in as guest:", error);
+    throw error;
+  }
+}
+
+// Get guest info from localStorage
+export function getGuestInfo() {
+  if (typeof window === 'undefined') return null;
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+  const guestName = localStorage.getItem('guestName');
+  
+  if (isGuest && guestName) {
+    return { name: guestName, isGuest: true };
+  }
+  return null;
+}
+
+// Logout guest
+export function logoutGuest() {
+  localStorage.removeItem('guestName');
+  localStorage.removeItem('isGuest');
+  localStorage.removeItem('guestLoginTime');
+}
