@@ -1,830 +1,568 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, AlertTriangle, CheckCircle2, TrendingUp, Briefcase, GraduationCap, DollarSign, CreditCard, PiggyBank, TrendingDown, History, Brain, Scissors, User, Percent, Clock } from 'lucide-react'
-import { Line, Bar, Radar, Doughnut } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, RadialLinearScale, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
+import { Loader2, LogOut, TrendingUp, Wallet, CreditCard, PieChart, UserRound } from 'lucide-react'
+import { Line, Doughnut } from 'react-chartjs-2'
+import {
+  ArcElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip
+} from 'chart.js'
 import { HolographicButton, HolographicCard } from '@/components/dashboard/HolographicUI'
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import type { LucideIcon } from 'lucide-react'
-import { getAIRecommendations } from '@/lib/ai-service'
 import { AIAdvisor } from '@/components/dashboard/features/AIAdvisor/AIAdvisor'
 import { CostCutter } from '@/components/dashboard/features/CostCutter/CostCutter'
 import { FinancialTimeline } from '@/components/dashboard/features/Timeline/FinancialTimeline'
-import { useAuth } from '@/contexts/AuthContext';
-import { AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  getExpenses,
+  getFinancialProfile,
+  getFinancialSummary,
+  getLoans,
+  updateFinancialProfile,
+  type ExpenseItem,
+  type FinancialProfile,
+  type FinancialSummary,
+  type LoanItem,
+  type RiskTolerance
+} from '@/lib/financial-client'
 
-ChartJS.register(
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  LineElement, 
-  BarElement, 
-  RadialLinearScale, 
-  ArcElement, 
-  Title, 
-  Tooltip, 
-  Legend, 
-  Filler
-)
+ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
-// Define interface for StatCard props
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: LucideIcon;
-  trend?: number;
-  className?: string;
-  editable?: boolean;
-  onUpdate?: (value: number) => void;
-  prefix?: string;
-  suffix?: string;
+type ProfileForm = {
+  full_name: string
+  country: string
+  student_status: string
+  university: string
+  monthly_income: number
+  savings_goal: number
+  risk_tolerance: RiskTolerance
 }
 
-// Update the StatCard component with proper typing
-const StatCard: React.FC<StatCardProps> = ({ 
-  title, 
-  value, 
-  icon: Icon, 
-  trend, 
-  className = '',
-  editable = false,
-  onUpdate,
-  prefix = '',
-  suffix = ''
-}) => {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(value)
+const DEFAULT_SUMMARY: FinancialSummary = {
+  total_income: 0,
+  total_expenses: 0,
+  monthly_loan_payments: 0,
+  remaining_balance: 0,
+  expense_ratio: 0,
+  debt_to_income_ratio: 0,
+  total_loan_balance: 0,
+  loans_count: 0,
+  expenses_count: 0,
+  financial_health_score: 0
+}
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (onUpdate) {
-      onUpdate(Number(editValue))
+export default function DashboardPage() {
+  const router = useRouter()
+  const { user, guestUser, isGuest, loading: authLoading, logout } = useAuth()
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'ai' | 'cost' | 'timeline' | 'profile'>(
+    'overview'
+  )
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [summary, setSummary] = useState<FinancialSummary>(DEFAULT_SUMMARY)
+  const [profile, setProfile] = useState<FinancialProfile | null>(null)
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([])
+  const [loans, setLoans] = useState<LoanItem[]>([])
+  const [profileForm, setProfileForm] = useState<ProfileForm>({
+    full_name: '',
+    country: '',
+    student_status: '',
+    university: '',
+    monthly_income: 0,
+    savings_goal: 0,
+    risk_tolerance: 'moderate'
+  })
+
+  const loadData = useCallback(async () => {
+    if (!user) return
+
+    setError('')
+    setLoading(true)
+    try {
+      const [profileData, summaryData, expenseData, loanData] = await Promise.all([
+        getFinancialProfile(),
+        getFinancialSummary(),
+        getExpenses(),
+        getLoans()
+      ])
+
+      if (!profileData.onboarding_completed) {
+        router.replace('/onboarding')
+        return
+      }
+
+      setProfile(profileData)
+      setSummary(summaryData)
+      setExpenses(expenseData.expenses)
+      setLoans(loanData.loans)
+      setProfileForm({
+        full_name: profileData.full_name,
+        country: profileData.country,
+        student_status: profileData.student_status,
+        university: profileData.university,
+        monthly_income: profileData.monthly_income,
+        savings_goal: profileData.savings_goal,
+        risk_tolerance: profileData.risk_tolerance
+      })
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load dashboard data')
+    } finally {
+      setLoading(false)
     }
-    setIsEditing(false)
+  }, [router, user])
+
+  useEffect(() => {
+    if (authLoading) return
+
+    if (!user && !isGuest) {
+      router.replace('/login')
+      return
+    }
+
+    if (user) {
+      void loadData()
+      return
+    }
+
+    setLoading(false)
+    setSummary(DEFAULT_SUMMARY)
+  }, [authLoading, isGuest, loadData, router, user])
+
+  const handleLogout = async () => {
+    await logout()
+    router.replace('/login')
   }
 
-  return (
-    <div 
-      className={`flex items-center p-4 rounded-lg bg-black/30 border border-cyan-500/30 ${className}`}
-      onClick={() => editable && setIsEditing(true)}
-    >
-      <Icon className="w-8 h-8 text-cyan-500 mr-3" />
-      <div className="flex-grow">
-        <p className="text-sm text-gray-400">{title}</p>
-        {isEditing ? (
-          <form onSubmit={handleSubmit} className="flex items-center gap-2">
-            <Input
-              type="number"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              className="bg-black/30 border-cyan-500/30 text-white w-24"
-              autoFocus
-              onBlur={handleSubmit}
-            />
-            {suffix}
-          </form>
-        ) : (
-          <p className="text-xl font-bold text-white">
-            {prefix}{typeof value === 'number' ? value.toLocaleString() : value}{suffix}
-          </p>
-        )}
-      </div>
-      {trend !== undefined && (
-        <div className={`ml-auto ${trend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-          {trend > 0 ? <TrendingUp /> : <TrendingDown />}
-          <span className="text-sm">{Math.abs(trend)}%</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Add interface for API response
-interface APIResponse {
-  data: {
-    metrics: {
-      riskScore: number;
-      monthlySavings: number;
-      debtToIncomeRatio: number;
-      savingsPotential: number;
-    };
-    recommendations: {
-      advice: string;
-      relevantData: any[];
-    };
-  };
-}
-
-export default function Dashboard() {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [loading, setLoading] = useState(true)
-  const [userData, setUserData] = useState({
-    name: 'Jamshed',
-    email: 'jamshed@example.com',
-    university: 'Quantum University',
-    loanAmount: 50000,
-    interestRate: 5.5,
-    repaymentTerm: 36,
-    monthlyIncome: 3000,
-    monthlyExpenses: 2000,
-    country: 'USA',
-  })
-
-  // Update metrics state to include editable fields
-  const [metrics, setMetrics] = useState({
-    totalLoan: userData.loanAmount,
-    monthlyPayment: 500,
-    savingsRate: 15,
-    riskScore: 75,
-    interestRate: userData.interestRate || 5.5,
-    repaymentTerm: userData.repaymentTerm || 36
-  })
-
-  // Add financial recommendations
-  const [recommendations, setRecommendations] = useState([
-    "Consider refinancing your loan to get a lower interest rate",
-    "Increase your monthly savings by reducing discretionary spending",
-    "Look into student loan forgiveness programs",
-    "Start building an emergency fund"
-  ])
-
-  const [aiData, setAiData] = useState(null)
-
-  // Guest login state
-  const { user, loading: authLoading, isGuest, guestUser, upgradeToEmail } = useAuth();
-  const [showUpgradeForm, setShowUpgradeForm] = useState(false);
-  const [upgradeEmail, setUpgradeEmail] = useState('');
-  const [upgradePassword, setUpgradePassword] = useState('');
-  
-  // Update userData with guest name if guest user
-  useEffect(() => {
-    if (guestUser && guestUser.name) {
-      setUserData(prev => ({
-        ...prev,
-        name: guestUser.name
-      }));
-    }
-  }, [guestUser]);
-  
-  const handleUpgrade = async () => {
+  const handleSaveProfile = async () => {
+    if (!user) return
+    setSaving(true)
+    setError('')
     try {
-      await upgradeToEmail(upgradeEmail, upgradePassword);
-      setShowUpgradeForm(false);
-      alert('Account upgraded successfully!');
-    } catch (error) {
-      console.error('Upgrade failed:', error);
-      alert('Failed to upgrade account. Please try again.');
+      const updated = await updateFinancialProfile({
+        full_name: profileForm.full_name,
+        country: profileForm.country,
+        student_status: profileForm.student_status,
+        university: profileForm.university,
+        monthly_income: Number(profileForm.monthly_income || 0),
+        savings_goal: Number(profileForm.savings_goal || 0),
+        risk_tolerance: profileForm.risk_tolerance
+      })
+      setProfile(updated)
+      await loadData()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save profile')
+    } finally {
+      setSaving(false)
     }
-  };
+  }
 
-  useEffect(() => {
-    if (!authLoading && !user && !isGuest) {
-      router.replace('/login')
-    }
-  }, [authLoading, user, isGuest, router])
+  const displayName = useMemo(() => {
+    if (isGuest && guestUser) return guestUser.name
+    if (profile?.full_name) return profile.full_name
+    if (user?.email) return user.email.split('@')[0]
+    return 'Student'
+  }, [guestUser, isGuest, profile?.full_name, user?.email])
 
-  useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => setLoading(false), 2000)
-  }, [])
+  const userData = useMemo(
+    () => ({
+      monthlyIncome: summary.total_income,
+      monthlyExpenses: summary.total_expenses,
+      country: profile?.country || 'United States',
+      loanAmount: summary.total_loan_balance
+    }),
+    [profile?.country, summary.total_expenses, summary.total_income, summary.total_loan_balance]
+  )
 
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const response = await fetch('/api/recommendations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || ''
-          },
-          body: JSON.stringify({
-            prompt: "Initial analysis",
-            userData: {
-              country: userData.country,
-              university: userData.university,
-              monthlyIncome: userData.monthlyIncome,
-              monthlyExpenses: userData.monthlyExpenses,
-              loanAmount: userData.loanAmount,
-              userMessage: "Initial analysis"
-            }
-          })
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch metrics');
-        
-        const data = await response.json() as APIResponse;
-        
-        // Add type guard to check if data has the expected structure
-        if (data?.data?.metrics) {
-          setMetrics(prev => ({
-            ...prev,
-            riskScore: data.data.metrics.riskScore,
-            monthlySavings: data.data.metrics.monthlySavings,
-            debtToIncomeRatio: data.data.metrics.debtToIncomeRatio,
-            savingsPotential: data.data.metrics.savingsPotential
-          }));
-
-          if (data.data.recommendations?.advice) {
-            setRecommendations([data.data.recommendations.advice]);
-          }
-        } else {
-          throw new Error('Invalid response format');
+  const cashFlowChartData = useMemo(() => {
+    const remaining = Math.max(summary.remaining_balance, 0)
+    return {
+      labels: ['Expenses', 'Loan Payments', 'Remaining'],
+      datasets: [
+        {
+          data: [summary.total_expenses, summary.monthly_loan_payments, remaining],
+          backgroundColor: ['rgba(239, 68, 68, 0.75)', 'rgba(245, 158, 11, 0.75)', 'rgba(16, 185, 129, 0.8)'],
+          borderColor: ['rgba(239, 68, 68, 1)', 'rgba(245, 158, 11, 1)', 'rgba(16, 185, 129, 1)'],
+          borderWidth: 1
         }
-      } catch (error) {
-        console.error('Error fetching metrics:', error);
-        // Optionally set some default values or show an error state
-        setMetrics(prev => ({
-          ...prev,
-          riskScore: 50, // Default values
-          monthlySavings: userData.monthlyIncome - userData.monthlyExpenses,
-          debtToIncomeRatio: (userData.loanAmount / 12) / userData.monthlyIncome,
-          savingsPotential: (userData.monthlyIncome - userData.monthlyExpenses) * 0.2
-        }));
-      }
-    };
-
-    if (!loading) {
-      fetchMetrics();
+      ]
     }
-  }, [userData, loading]);
+  }, [summary.monthly_loan_payments, summary.remaining_balance, summary.total_expenses])
 
-  // Add new feature tabs
+  const projectionChartData = useMemo(() => {
+    const monthlyNet = summary.remaining_balance
+    const points = Array.from({ length: 6 }, (_, index) => {
+      return Math.round(monthlyNet * (index + 1))
+    })
+
+    return {
+      labels: ['Month 1', 'Month 2', 'Month 3', 'Month 4', 'Month 5', 'Month 6'],
+      datasets: [
+        {
+          label: 'Projected Net Balance',
+          data: points,
+          borderColor: 'rgba(34, 211, 238, 1)',
+          backgroundColor: 'rgba(34, 211, 238, 0.2)',
+          fill: true,
+          tension: 0.35
+        }
+      ]
+    }
+  }, [summary.remaining_balance])
+
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: Briefcase },
-    { id: 'ai-advisor', label: 'AI Advisor', icon: Brain },
-    { id: 'cost-cutter', label: 'Cost Cutter', icon: Scissors },
-    { id: 'timelines', label: 'Timelines', icon: History },
-    { id: 'profile', label: 'Profile', icon: User }
+    { id: 'overview' as const, label: 'Overview' },
+    { id: 'ai' as const, label: 'AI Advisor' },
+    { id: 'cost' as const, label: 'Cost Cutter' },
+    { id: 'timeline' as const, label: 'Timeline' },
+    { id: 'profile' as const, label: 'Profile' }
   ]
 
-  // Add function to recalculate loan timeline data
-  const calculateLoanTimeline = useCallback(() => {
-    const monthlyRate = metrics.interestRate / 1200
-    const totalPayments = metrics.repaymentTerm
-    const monthlyPayment = (metrics.totalLoan * monthlyRate * Math.pow(1 + monthlyRate, totalPayments)) / (Math.pow(1 + monthlyRate, totalPayments) - 1)
-    
-    let balance = metrics.totalLoan
-    const timelineData = []
-    
-    for (let i = 0; i <= 5; i++) {
-      timelineData.push({
-        month: i * 12,
-        balance: Math.round(balance)
-      })
-      balance = balance * (1 + monthlyRate) - monthlyPayment * 12
-    }
-
-    return timelineData
-  }, [metrics.totalLoan, metrics.interestRate, metrics.repaymentTerm])
-
-  // Update userData when profile changes
-  const handleProfileUpdate = (newData: Partial<typeof userData>) => {
-    setUserData(prev => {
-      const updated = { ...prev, ...newData }
-      // Update metrics based on new user data
-      setMetrics(prev => ({
-        ...prev,
-        totalLoan: updated.loanAmount,
-        monthlyPayment: calculateMonthlyPayment(updated.loanAmount, metrics.interestRate, metrics.repaymentTerm)
-      }))
-      return updated
-    })
-  }
-
-  // Add function to handle metric updates
-  const handleMetricUpdate = (field: string, value: number) => {
-    setMetrics(prev => ({
-      ...prev,
-      [field]: value,
-      monthlyPayment: field === 'totalLoan' || field === 'interestRate' || field === 'repaymentTerm' 
-        ? calculateMonthlyPayment(
-            field === 'totalLoan' ? value : prev.totalLoan,
-            field === 'interestRate' ? value : prev.interestRate,
-            field === 'repaymentTerm' ? value : prev.repaymentTerm
-          )
-        : prev.monthlyPayment
-    }))
-  }
-
-  // Helper function to calculate monthly payment
-  const calculateMonthlyPayment = (loan: number, rate: number, term: number) => {
-    const monthlyRate = rate / 1200
-    return Math.round((loan * monthlyRate * Math.pow(1 + monthlyRate, term)) / (Math.pow(1 + monthlyRate, term) - 1))
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white grid place-items-center">
+        <Loader2 className="h-9 w-9 animate-spin text-cyan-400" />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white">
-      {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        {/* Guest Mode Banner */}
-        {isGuest && guestUser && (
-          <div className="bg-yellow-500/20 border border-yellow-500 p-4 rounded-lg mb-6 flex items-center gap-2">
-            <AlertCircle className="text-yellow-500" />
-            <p className="flex-1">
-              Welcome, <span className="font-semibold text-yellow-400">{guestUser.name}</span>! You are in Guest Mode. Some features are limited.
-            </p>
-            <Button onClick={() => setShowUpgradeForm(true)} className="ml-auto bg-yellow-500 hover:bg-yellow-600 text-black">
-              Upgrade to Full Account
+    <div className="min-h-screen bg-[radial-gradient(circle_at_10%_0%,#0f766e24,transparent_40%),radial-gradient(circle_at_90%_10%,#0ea5e924,transparent_35%),linear-gradient(#020617,#020617)] text-white">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.25em] text-cyan-300/80">BurryAI Dashboard</p>
+            <h1 className="text-3xl font-semibold mt-1">Welcome, {displayName}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            {user ? <p className="text-sm text-slate-300">{user.email}</p> : null}
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="border-slate-700 bg-slate-900 hover:bg-slate-800"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
             </Button>
           </div>
-        )}
-        
-        {/* Upgrade Form */}
-        {showUpgradeForm && (
-          <div className="p-4 bg-black/80 rounded-lg mb-6 border border-cyan-500/30">
-            <h3 className="text-xl font-bold mb-4 text-cyan-500">Upgrade Account</h3>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-gray-300">Email</Label>
-                <Input 
-                  placeholder="Email" 
-                  value={upgradeEmail} 
-                  onChange={(e) => setUpgradeEmail(e.target.value)}
-                  className="bg-gray-900 text-white border-gray-700"
-                />
-              </div>
-              <div>
-                <Label className="text-gray-300">Password</Label>
-                <Input 
-                  type="password" 
-                  placeholder="Password" 
-                  value={upgradePassword} 
-                  onChange={(e) => setUpgradePassword(e.target.value)}
-                  className="bg-gray-900 text-white border-gray-700"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleUpgrade} className="bg-cyan-500 hover:bg-cyan-600">
-                  Upgrade
-                </Button>
-                <Button 
-                  onClick={() => setShowUpgradeForm(false)} 
-                  variant="outline"
-                  className="bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
+        </header>
+
+        {isGuest ? (
+          <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-amber-100">
+            Guest mode is active. Sign up to save real financial data and enable onboarding.
           </div>
-        )}
-        
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-4 mb-8">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <HolographicButton
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                icon={Icon}
-                className={`${
-                  activeTab === tab.id
-                    ? 'bg-cyan-500 text-black'
-                    : 'bg-transparent text-cyan-500'
-                }`}
-              >
-                {tab.label}
-              </HolographicButton>
-            )
-          })}
+        ) : null}
+
+        {error ? (
+          <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-rose-200">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-3">
+          {tabs.map((tab) => (
+            <HolographicButton
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={activeTab === tab.id ? 'bg-cyan-400 text-slate-950 border-cyan-300' : ''}
+            >
+              {tab.label}
+            </HolographicButton>
+          ))}
         </div>
 
-        {/* Tab Content */}
-        {loading ? (
-          <div className="flex items-center justify-center h-[60vh]">
-            <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
-          </div>
-        ) : (
-          <div>
-              {/* Existing dashboard content */}
-              {activeTab === 'dashboard' && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <StatCard 
-                      title="Total Loan" 
-                      value={metrics.totalLoan}
-                      icon={CreditCard}
-                      editable={true}
-                      onUpdate={(value) => handleMetricUpdate('totalLoan', value)}
-                      prefix="$"
-                    />
-                    <StatCard 
-                      title="Monthly Payment" 
-                      value={metrics.monthlyPayment}
-                      icon={DollarSign}
-                      trend={-2.5}
-                      prefix="$"
-                    />
-                    <StatCard 
-                      title="Interest Rate" 
-                      value={metrics.interestRate}
-                      icon={Percent}
-                      editable={true}
-                      onUpdate={(value) => handleMetricUpdate('interestRate', value)}
-                      suffix="%"
-                    />
-                    <StatCard 
-                      title="Loan Term" 
-                      value={metrics.repaymentTerm}
-                      icon={Clock}
-                      editable={true}
-                      onUpdate={(value) => handleMetricUpdate('repaymentTerm', value)}
-                      suffix=" months"
-                    />
-                  </div>
-
-                  {/* New Analytics Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    {/* Loan vs Income Analysis */}
-                    <HolographicCard>
-                      <h3 className="text-xl font-bold mb-4">Loan vs Income Analysis</h3>
-                      <div className="h-64">
-                        <Bar
-                          data={{
-                            labels: ['Current', 'After 1 Year', 'After 2 Years', 'After 3 Years'],
-                            datasets: [
-                              {
-                                label: 'Loan Balance',
-                                data: calculateLoanTimeline().slice(0, 4).map(d => d.balance),
-                                backgroundColor: 'rgba(6, 182, 212, 0.5)',
-                                borderColor: 'rgba(6, 182, 212, 1)',
-                                borderWidth: 1,
-                              },
-                              {
-                                label: 'Projected Income',
-                                data: [
-                                  userData.monthlyIncome * 12,
-                                  userData.monthlyIncome * 12 * 1.05,
-                                  userData.monthlyIncome * 12 * 1.1,
-                                  userData.monthlyIncome * 12 * 1.15,
-                                ],
-                                backgroundColor: 'rgba(34, 197, 94, 0.5)',
-                                borderColor: 'rgba(34, 197, 94, 1)',
-                                borderWidth: 1,
-                              }
-                            ]
-                          }}
-                          options={{
-                            responsive: true,
-                            plugins: {
-                              legend: { 
-                                display: true,
-                                position: 'top',
-                                labels: { color: 'white' }
-                              },
-                            },
-                            scales: {
-                              y: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                ticks: { 
-                                  color: 'white',
-                                  callback: (value) => `$${value.toLocaleString()}`
-                                }
-                              },
-                              x: {
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                ticks: { color: 'white' }
-                              }
-                            },
-                          }}
-                        />
-                      </div>
-                    </HolographicCard>
-
-                    {/* Financial Health Radar */}
-                    <HolographicCard>
-                      <h3 className="text-xl font-bold mb-4">Financial Health Metrics</h3>
-                      <div className="h-64">
-                        <Radar
-                          data={{
-                            labels: [
-                              'Debt-to-Income',
-                              'Savings Rate',
-                              'Payment Reliability',
-                              'Income Growth',
-                              'Emergency Fund'
-                            ],
-                            datasets: [{
-                              label: 'Your Metrics',
-                              data: [
-                                (metrics.totalLoan / (userData.monthlyIncome * 12)) * 100,
-                                (userData.monthlyIncome - userData.monthlyExpenses) / userData.monthlyIncome * 100,
-                                95, // Example reliability score
-                                5,  // Example growth rate
-                                ((userData.monthlyIncome - userData.monthlyExpenses) * 3) / (userData.monthlyExpenses * 6) * 100
-                              ],
-                              backgroundColor: 'rgba(6, 182, 212, 0.2)',
-                              borderColor: 'rgba(6, 182, 212, 1)',
-                              borderWidth: 2,
-                              pointBackgroundColor: 'rgba(6, 182, 212, 1)',
-                              pointBorderColor: '#fff',
-                              pointHoverBackgroundColor: '#fff',
-                              pointHoverBorderColor: 'rgba(6, 182, 212, 1)'
-                            }]
-                          }}
-                          options={{
-                            responsive: true,
-                            scales: {
-                              r: {
-                                angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                pointLabels: { color: 'white' },
-                                ticks: { color: 'white', backdropColor: 'transparent' }
-                              }
-                            },
-                            plugins: {
-                              legend: { display: false }
-                            }
-                          }}
-                        />
-                      </div>
-                    </HolographicCard>
-
-                    {/* Monthly Cash Flow */}
-                    <HolographicCard>
-                      <h3 className="text-xl font-bold mb-4">Monthly Cash Flow</h3>
-                      <div className="h-64">
-                        <Doughnut
-                          data={{
-                            labels: ['Loan Payment', 'Other Expenses', 'Savings', 'Disposable'],
-                            datasets: [{
-                              data: [
-                                metrics.monthlyPayment,
-                                userData.monthlyExpenses - metrics.monthlyPayment,
-                                (userData.monthlyIncome - userData.monthlyExpenses) * 0.5,
-                                (userData.monthlyIncome - userData.monthlyExpenses) * 0.5
-                              ],
-                              backgroundColor: [
-                                'rgba(6, 182, 212, 0.8)',
-                                'rgba(239, 68, 68, 0.8)',
-                                'rgba(34, 197, 94, 0.8)',
-                                'rgba(168, 85, 247, 0.8)'
-                              ],
-                              borderColor: 'rgba(0, 0, 0, 0.1)',
-                              borderWidth: 1
-                            }]
-                          }}
-                          options={{
-                            responsive: true,
-                            plugins: {
-                              legend: {
-                                position: 'right',
-                                labels: { color: 'white' }
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    </HolographicCard>
-
-                    {/* Payment Schedule */}
-                    <HolographicCard>
-                      <h3 className="text-xl font-bold mb-4">Payment Schedule Impact</h3>
-                      <div className="h-64">
-                        <Line
-                          data={{
-                            labels: ['Current', '+3 Months', '+6 Months', '+9 Months', '+12 Months'],
-                            datasets: [
-                              {
-                                label: 'Standard Payment',
-                                data: calculateLoanTimeline().slice(0, 5).map(d => d.balance),
-                                borderColor: 'rgba(6, 182, 212, 1)',
-                                backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                                fill: true,
-                              },
-                              {
-                                label: 'With Extra Payment',
-                                data: calculateLoanTimeline().slice(0, 5).map(d => d.balance * 0.95),
-                                borderColor: 'rgba(34, 197, 94, 1)',
-                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                                fill: true,
-                              }
-                            ]
-                          }}
-                          options={{
-                            responsive: true,
-                            plugins: {
-                              legend: {
-                                position: 'top',
-                                labels: { color: 'white' }
-                              }
-                            },
-                            scales: {
-                              y: {
-                                beginAtZero: false,
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                ticks: { 
-                                  color: 'white',
-                                  callback: (value) => `$${value.toLocaleString()}`
-                                }
-                              },
-                              x: {
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                ticks: { color: 'white' }
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    </HolographicCard>
-                  </div>
-                </>
-              )}
-
-              {/* AI Advisor Tab */}
-              {activeTab === 'ai-advisor' && (
-                <div className="w-full">
-                  <AIAdvisor userData={userData} />
-                </div>
-              )}
-
-              {/* Cost Cutter Tab */}
-              {activeTab === 'cost-cutter' && (
-                <div className="w-full">
-                  <CostCutter userData={userData} />
-                </div>
-              )}
-
-              {/* Timelines Tab */}
-              {activeTab === 'timelines' && (
-                <div className="grid grid-cols-1 gap-6">
-                  <FinancialTimeline userData={userData} />
-                </div>
-              )}
-
-              {/* Existing profile content */}
-              {activeTab === 'profile' && (
-                <div className="space-y-6">
-                    {/* Profile Header */}
-                  <HolographicCard className="relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-purple-500/10" />
-                    <div className="relative z-10 flex items-center gap-6">
-                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
-                        <User className="w-12 h-12 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
-                          {userData.name}
-                        </h2>
-                        <p className="text-gray-400">{userData.email}</p>
-                      </div>
-                    </div>
-                  </HolographicCard>
-
-                  {/* Profile Content */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Personal Information */}
-                    <HolographicCard>
-                      <h3 className="text-xl font-bold mb-6 flex items-center">
-                        <User className="w-6 h-6 text-cyan-500 mr-2" />
-                        Personal Information
-                      </h3>
-                      <div className="space-y-6">
-                        <div className="relative">
-                          <Label className="text-gray-300">Full Name</Label>
-                          <div className="relative">
-                            <Input 
-                              value={userData.name}
-                              className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
-                              onChange={(e) => setUserData({...userData, name: e.target.value})}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <Label className="text-gray-300">Email Address</Label>
-                          <div className="relative">
-                            <Input 
-                              value={userData.email}
-                              className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
-                              onChange={(e) => setUserData({...userData, email: e.target.value})}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <Label className="text-gray-300">University</Label>
-                          <div className="relative">
-                            <Input 
-                              value={userData.university}
-                              className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
-                              onChange={(e) => setUserData({...userData, university: e.target.value})}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </HolographicCard>
-
-                    {/* Financial Information */}
-                    <HolographicCard>
-                      <h3 className="text-xl font-bold mb-6 flex items-center">
-                        <DollarSign className="w-6 h-6 text-cyan-500 mr-2" />
-                        Financial Information
-                      </h3>
-                      <div className="space-y-6">
-                        <div className="relative">
-                          <Label className="text-gray-300">Monthly Income</Label>
-                          <div className="relative">
-                            <Input 
-                              type="number"
-                              value={userData.monthlyIncome}
-                              className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
-                              onChange={(e) => setUserData({...userData, monthlyIncome: Number(e.target.value)})}
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                              <span className="text-cyan-500">USD</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <Label className="text-gray-300">Monthly Expenses</Label>
-                          <div className="relative">
-                            <Input 
-                              type="number"
-                              value={userData.monthlyExpenses}
-                              className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
-                              onChange={(e) => setUserData({...userData, monthlyExpenses: Number(e.target.value)})}
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                              <span className="text-cyan-500">USD</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <Label className="text-gray-300">Country</Label>
-                          <div className="relative">
-                            <Input 
-                              value={userData.country}
-                              className="bg-black/30 border-cyan-500/30 text-white focus:border-cyan-500 transition-all"
-                              onChange={(e) => setUserData({...userData, country: e.target.value})}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </HolographicCard>
-
-                    {/* Profile Stats */}
-                    <HolographicCard>
-                      <h3 className="text-xl font-bold mb-6 flex items-center">
-                        <TrendingUp className="w-6 h-6 text-cyan-500 mr-2" />
-                        Profile Statistics
-                      </h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-black/30 rounded-lg border border-cyan-500/30">
-                          <p className="text-gray-400 text-sm">Savings Rate</p>
-                          <p className="text-2xl font-bold text-cyan-500">
-                            {Math.round((userData.monthlyIncome - userData.monthlyExpenses) / userData.monthlyIncome * 100)}%
-                          </p>
-                        </div>
-                        <div className="p-4 bg-black/30 rounded-lg border border-cyan-500/30">
-                          <p className="text-gray-400 text-sm">Debt-to-Income</p>
-                          <p className="text-2xl font-bold text-cyan-500">
-                            {Math.round((metrics.totalLoan / (userData.monthlyIncome * 12)) * 100)}%
-                          </p>
-                        </div>
-                        <div className="p-4 bg-black/30 rounded-lg border border-cyan-500/30">
-                          <p className="text-gray-400 text-sm">Monthly Savings</p>
-                          <p className="text-2xl font-bold text-cyan-500">
-                            ${(userData.monthlyIncome - userData.monthlyExpenses).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="p-4 bg-black/30 rounded-lg border border-cyan-500/30">
-                          <p className="text-gray-400 text-sm">Risk Score</p>
-                          <p className="text-2xl font-bold text-cyan-500">
-                            {metrics.riskScore}/100
-                          </p>
-                        </div>
-                      </div>
-                    </HolographicCard>
-
-                    {/* Save Changes Button */}
-                    <div className="lg:col-span-2 flex justify-end">
-                      <HolographicButton 
-                        onClick={() => {
-                          // Handle profile update
-                          console.log('Profile updated')
-                        }}
-                        className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-8"
-                      >
-                        Save Changes
-                      </HolographicButton>
-                    </div>
-                  </div>
-                </div>
-              )}
+        {activeTab === 'overview' ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <HolographicCard>
+                <p className="text-slate-300 text-sm flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-cyan-300" />
+                  Total Income
+                </p>
+                <p className="text-3xl font-semibold mt-2">${summary.total_income.toLocaleString()}</p>
+              </HolographicCard>
+              <HolographicCard>
+                <p className="text-slate-300 text-sm flex items-center gap-2">
+                  <PieChart className="h-4 w-4 text-rose-300" />
+                  Total Expenses
+                </p>
+                <p className="text-3xl font-semibold mt-2">${summary.total_expenses.toLocaleString()}</p>
+              </HolographicCard>
+              <HolographicCard>
+                <p className="text-slate-300 text-sm flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-amber-300" />
+                  Loan Payments
+                </p>
+                <p className="text-3xl font-semibold mt-2">
+                  ${summary.monthly_loan_payments.toLocaleString()}
+                </p>
+              </HolographicCard>
+              <HolographicCard>
+                <p className="text-slate-300 text-sm flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-300" />
+                  Health Score
+                </p>
+                <p className="text-3xl font-semibold mt-2">{summary.financial_health_score}/100</p>
+              </HolographicCard>
             </div>
-          )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <HolographicCard>
+                <h3 className="text-xl font-semibold mb-4">Monthly Cash Flow Mix</h3>
+                <div className="h-72">
+                  <Doughnut
+                    data={cashFlowChartData}
+                    options={{
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          labels: { color: '#e2e8f0' }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </HolographicCard>
+
+              <HolographicCard>
+                <h3 className="text-xl font-semibold mb-4">6-Month Projection</h3>
+                <div className="h-72">
+                  <Line
+                    data={projectionChartData}
+                    options={{
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          labels: { color: '#e2e8f0' }
+                        }
+                      },
+                      scales: {
+                        x: {
+                          ticks: { color: '#e2e8f0' },
+                          grid: { color: 'rgba(148, 163, 184, 0.18)' }
+                        },
+                        y: {
+                          ticks: {
+                            color: '#e2e8f0',
+                            callback: (value) => `$${value.toLocaleString()}`
+                          },
+                          grid: { color: 'rgba(148, 163, 184, 0.18)' }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </HolographicCard>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <HolographicCard>
+                <h3 className="text-lg font-semibold mb-3">Recent Expenses</h3>
+                <div className="space-y-3">
+                  {expenses.length === 0 ? (
+                    <p className="text-slate-400 text-sm">No expenses logged yet.</p>
+                  ) : (
+                    expenses.slice(0, 5).map((expense) => (
+                      <div key={expense.id} className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
+                        <p className="font-medium">{expense.category}</p>
+                        <p className="text-sm text-slate-300">${expense.amount.toLocaleString()}</p>
+                        <p className="text-xs text-slate-400">{expense.date}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </HolographicCard>
+
+              <HolographicCard>
+                <h3 className="text-lg font-semibold mb-3">Loan Snapshot</h3>
+                <div className="space-y-3">
+                  {loans.length === 0 ? (
+                    <p className="text-slate-400 text-sm">No loans recorded yet.</p>
+                  ) : (
+                    loans.slice(0, 5).map((loan) => (
+                      <div key={loan.id} className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
+                        <p className="font-medium">{loan.loan_name}</p>
+                        <p className="text-sm text-slate-300">
+                          Balance: ${loan.remaining_balance.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          Min payment: ${loan.minimum_payment.toLocaleString()}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </HolographicCard>
+            </div>
+          </div>
+        ) : null}
+
+        {activeTab === 'ai' ? (
+          <AIAdvisor
+            userData={{
+              monthlyIncome: userData.monthlyIncome,
+              monthlyExpenses: userData.monthlyExpenses,
+              country: userData.country
+            }}
+          />
+        ) : null}
+
+        {activeTab === 'cost' ? (
+          <CostCutter
+            userData={{
+              monthlyExpenses: userData.monthlyExpenses,
+              monthlyIncome: userData.monthlyIncome,
+              country: userData.country
+            }}
+          />
+        ) : null}
+
+        {activeTab === 'timeline' ? (
+          <FinancialTimeline
+            userData={{
+              loanAmount: userData.loanAmount,
+              monthlyIncome: userData.monthlyIncome,
+              monthlyExpenses: userData.monthlyExpenses
+            }}
+          />
+        ) : null}
+
+        {activeTab === 'profile' ? (
+          <HolographicCard>
+            <div className="flex items-center justify-between gap-3 mb-6">
+              <h3 className="text-2xl font-semibold flex items-center gap-2">
+                <UserRound className="h-6 w-6 text-cyan-300" />
+                Profile Settings
+              </h3>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/onboarding')}
+                className="border-slate-700 bg-slate-900 hover:bg-slate-800"
+              >
+                Re-run onboarding
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Full name</Label>
+                <Input
+                  id="full_name"
+                  value={profileForm.full_name}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({ ...prev, full_name: event.target.value }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={profileForm.country}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({ ...prev, country: event.target.value }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="student_status">Student status</Label>
+                <Input
+                  id="student_status"
+                  value={profileForm.student_status}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({ ...prev, student_status: event.target.value }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="university">University</Label>
+                <Input
+                  id="university"
+                  value={profileForm.university}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({ ...prev, university: event.target.value }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="monthly_income">Monthly income</Label>
+                <Input
+                  id="monthly_income"
+                  type="number"
+                  min={0}
+                  value={profileForm.monthly_income}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      monthly_income: Number(event.target.value || 0)
+                    }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="savings_goal">Savings goal</Label>
+                <Input
+                  id="savings_goal"
+                  type="number"
+                  min={0}
+                  value={profileForm.savings_goal}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      savings_goal: Number(event.target.value || 0)
+                    }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="risk_tolerance">Risk tolerance</Label>
+                <select
+                  id="risk_tolerance"
+                  value={profileForm.risk_tolerance}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      risk_tolerance: event.target.value as RiskTolerance
+                    }))
+                  }
+                  className="w-full h-10 rounded-md border border-cyan-500/30 bg-slate-950/60 px-3 text-sm outline-none focus:border-cyan-300"
+                >
+                  <option value="low">Low</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleSaveProfile}
+                disabled={saving || isGuest}
+                className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+              >
+                {saving ? 'Saving...' : 'Save profile'}
+              </Button>
+            </div>
+          </HolographicCard>
+        ) : null}
       </div>
     </div>
   )
 }
-
