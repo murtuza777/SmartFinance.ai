@@ -1,0 +1,18 @@
+import { Hono } from "hono"
+import authRoutes from "./routes/auth"
+import type { AppEnv } from "./types"
+
+const app = new Hono<AppEnv>()
+
+app.get("/health", (c) => {
+  return c.json({
+    ok: true,
+    service: "BurryAI API",
+    status: "running"
+  })
+})
+
+app.route("/auth", authRoutes)
+app.route("/api/auth", authRoutes)
+
+export default app
