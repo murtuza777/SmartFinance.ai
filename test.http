@@ -1,5 +1,5 @@
 ### Test Recommendations
-POST https://smartfinance-ai.manwaarullahb.workers.dev/api/recommendations
+POST https://burryai-worker.<your-subdomain>.workers.dev/recommendations
 Content-Type: application/json
 
 {
@@ -11,7 +11,7 @@ Content-Type: application/json
 }
 
 ### Test Scholarship Search
-POST https://smartfinance-ai.manwaarullahb.workers.dev/api/scholarships
+POST https://burryai-worker.<your-subdomain>.workers.dev/scholarships
 Content-Type: application/json
 
 {

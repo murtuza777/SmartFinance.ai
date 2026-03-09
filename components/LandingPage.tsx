@@ -28,7 +28,7 @@ export default function LandingPage() {
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    router.push('/dashboard')
+    router.push('/login')
   }
 
   const features = [
@@ -79,7 +79,7 @@ export default function LandingPage() {
         isScrolled ? 'bg-black/80 backdrop-blur-lg' : ''
       }`}>
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-cyan-500">SmartFinance.AI</h1>
+          <h1 className="text-2xl font-bold text-cyan-500">BurryAI</h1>
           <div className="flex items-center gap-2">
             <HolographicButton 
               onClick={() => {
@@ -186,7 +186,7 @@ export default function LandingPage() {
 
                   <CardHeader>
                     <CardTitle className="text-2xl text-cyan-500">
-                      {isLogin ? 'Welcome Back' : 'Join SmartFinance.AI'}
+                      {isLogin ? 'Welcome Back' : 'Join BurryAI'}
                     </CardTitle>
                     <CardDescription className="text-gray-400">
                       {isLogin 
@@ -328,7 +328,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="relative py-8 px-4 border-t border-cyan-500/20">
         <div className="container mx-auto text-center text-gray-400">
-          <p>© 2024 SmartFinance.AI. All rights reserved.</p>
+          <p>© 2026 BurryAI. All rights reserved.</p>
         </div>
       </footer>
     </div>

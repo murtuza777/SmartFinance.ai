@@ -26,7 +26,7 @@ export function DataViz() {
         anchorX="center"
         anchorY="middle"
       >
-        SmartFinance.AI Dashboard
+        BurryAI Dashboard
       </Text>
     </group>
   )

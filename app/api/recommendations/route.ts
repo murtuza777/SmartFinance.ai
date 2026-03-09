@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 
+const WORKER_API_BASE_URL =
+  process.env.WORKER_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_WORKER_API_BASE_URL ||
+  'http://127.0.0.1:8787';
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
     const body = await request.json();
 
-    const response = await fetch('https://smartfinance-ai.manwaarullahb.workers.dev/api/recommendations', {
+    const response = await fetch(`${WORKER_API_BASE_URL}/recommendations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

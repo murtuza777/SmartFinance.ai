@@ -40,9 +40,7 @@ interface InvestmentOption {
   description: string;
 }
 
-const API_BASE = process.env.NODE_ENV === 'development' 
-  ? '/api'  // This will use Next.js rewrite
-  : 'https://smartfinance-ai.manwaarullahb.workers.dev/api';
+const API_BASE = '/api';
 
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 

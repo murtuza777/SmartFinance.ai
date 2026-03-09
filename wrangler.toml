@@ -1,4 +1,4 @@
-name = "smartfinance-ai"
+name = "burryai-worker"
 main = "workers/ai-service.ts"
 compatibility_date = "2024-03-19"
 
