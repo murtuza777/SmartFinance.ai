@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { motion } from 'framer-motion'
 import { signInAsGuest } from '@/lib/guest-auth'
 import { useAuth } from '@/contexts/AuthContext'
+import { BrandIdentity } from '@/components/BrandIdentity'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -81,13 +82,16 @@ export default function LoginPage() {
       >
         <Card className="w-[400px] bg-black/80 backdrop-blur-lg border-cyan-500/30">
           <CardHeader>
+            <div className="mb-2">
+              <BrandIdentity size={32} textClassName="text-2xl font-bold text-cyan-400" />
+            </div>
             <CardTitle className="text-xl text-cyan-500">
-              {isLogin ? 'Welcome to BurryAI' : 'Join BurryAI'}
+              {isLogin ? 'Welcome Back' : 'Create Your Account'}
             </CardTitle>
             <CardDescription className="text-gray-300">
               {isLogin 
                 ? 'Access your AI-powered financial insights' 
-                : 'Start your journey to better loan management'}
+                : 'Start your student finance journey with BurryAI'}
             </CardDescription>
           </CardHeader>
           <CardContent>

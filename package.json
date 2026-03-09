@@ -5,6 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:web": "next dev -p 3000",
+    "dev:worker:local": "npm run dev --prefix burryai-worker -- --port 8787 --ip 127.0.0.1",
+    "dev:all": "concurrently -k -n worker,web -c cyan,green \"npm run dev:worker:local\" \"cross-env WORKER_API_BASE_URL=http://127.0.0.1:8787 npm run dev:web\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -45,6 +48,8 @@
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.160.0",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "ts-loader": "^9.5.1",
