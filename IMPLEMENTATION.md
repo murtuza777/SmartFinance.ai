@@ -30,6 +30,42 @@ It is written for two goals:
 
 ---
 
+## 0.1 Execution Status (Updated March 10, 2026)
+
+Use this checklist as the live implementation tracker.
+
+- [x] Phase 1 - Cloudflare Infrastructure Setup
+- [x] Phase 2 - Authentication and User System
+- [x] Phase 3 - Financial Data Layer
+- [x] Phase 4 - Financial Analytics Engine
+- [ ] Phase 5 - Dashboard APIs
+- [ ] Phase 6 - LangGraph Financial Agent
+- [ ] Phase 7 - Tool System
+- [ ] Phase 8 - RAG Integration
+- [ ] Phase 9 - Web Retrieval
+- [ ] Phase 10 - Frontend Integration (remaining advanced modules)
+- [ ] Phase 11 - Production Hardening
+
+### Done Now (March 10, 2026)
+
+- Auth routes + JWT sessions (`/auth/signup`, `/auth/login`, `/auth/logout`, `/auth/me`).
+- Financial CRUD routes (`POST/GET /expenses`, `POST/GET /loans`) with user-scoped queries.
+- Profile/onboarding routes (`GET/PUT /profile`, aliases under `/user/profile`).
+- Financial analytics route (`GET /financial-summary`) with deterministic score calculation.
+- Frontend dashboard wired to real backend data (no profile mock state).
+- Onboarding page added and linked from signup flow.
+- Login/signup page redesigned and app logout added.
+- Worker deployed: `https://burryai-worker.mdmurtuzaali777.workers.dev`
+- D1 migrations applied locally and remotely up through `0002_user_profiles.sql`.
+
+### Deployment Timing Guidance
+
+- Deploy Worker now after Phases 2-4 whenever API schema changes are complete and tested.
+- Deploy frontend to production after Phase 5 (dashboard APIs) minimum, so dashboard widgets are fully backend-driven.
+- Do final "stable production" deployment only after Phase 11 hardening tasks are complete.
+
+---
+
 ## 1. Learning Primer (Cloudflare + LangGraph)
 
 Use this as a quick guide while implementing.
@@ -550,4 +586,3 @@ Start with these exact steps:
 - Validate all inputs with Zod.
 - Keep agent responses grounded with tools + retrieval.
 - Every phase must end with testable deliverables.
-

@@ -189,7 +189,9 @@ export function CostCutter({ userData }: CostCutterProps) {
                 <div className="h-2 bg-black/50 rounded-full">
                   <div 
                     className="h-full bg-cyan-500 rounded-full"
-                    style={{ width: `${(category.potential / category.amount) * 100}%` }}
+                    style={{
+                      width: `${category.amount > 0 ? (category.potential / category.amount) * 100 : 0}%`
+                    }}
                   />
                 </div>
               </div>

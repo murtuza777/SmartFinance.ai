@@ -46,7 +46,8 @@ export function FinancialTimeline({ userData }: TimelineProps) {
   const totalInterest = timelineData.reduce((sum, d) => sum + d.interest, 0)
   
   // Calculate payoff dates
-  const standardPayoffMonth = timelineData.findIndex(d => d.balance <= 0) || timelineData.length
+  const standardPayoffMonthRaw = timelineData.findIndex(d => d.balance <= 0)
+  const standardPayoffMonth = standardPayoffMonthRaw === -1 ? timelineData.length : standardPayoffMonthRaw
   const payoffDate = format(addMonths(new Date(), standardPayoffMonth), 'MMM yyyy')
   
   // Calculate with extra payments
@@ -64,6 +65,10 @@ export function FinancialTimeline({ userData }: TimelineProps) {
 
   const payoffDateWithExtra = format(addMonths(new Date(), monthsWithExtra), 'MMM yyyy')
   const interestSavings = Math.round(totalInterest - totalInterestWithExtra)
+  const payoffProgress =
+    userData.loanAmount > 0
+      ? Math.round((1 - timelineData[timelineData.length - 1].balance / userData.loanAmount) * 100)
+      : 100
 
   return (
     <div className="space-y-6">
@@ -167,7 +172,7 @@ export function FinancialTimeline({ userData }: TimelineProps) {
             <div>
               <h4 className="text-gray-400">Payoff Progress</h4>
               <p className="text-2xl font-bold">
-                {Math.round((1 - timelineData[timelineData.length - 1].balance / userData.loanAmount) * 100)}%
+                {payoffProgress}%
               </p>
             </div>
             <TrendingUp className="w-8 h-8 text-cyan-500" />
@@ -179,7 +184,7 @@ export function FinancialTimeline({ userData }: TimelineProps) {
             <div>
               <h4 className="text-gray-400">Time Remaining</h4>
               <p className="text-2xl font-bold">
-                {timelineData.findIndex(d => d.balance <= 0) || timelineData.length} months
+                {standardPayoffMonth} months
               </p>
             </div>
             <Clock className="w-8 h-8 text-cyan-500" />
