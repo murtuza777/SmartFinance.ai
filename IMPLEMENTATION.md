@@ -1,258 +1,553 @@
-## SmartFinance.AI – Implementation Plan (Cloudflare + Agentic)
+# BurryAI - Complete Implementation Plan (Cloudflare + LangGraph)
 
-This file describes how to (re)build SmartFinance.AI from **basic → advanced**, using **Cloudflare** services and an **agentic financial AI** that delivers the features promised in `README.md`.
+This document is the execution roadmap to build BurryAI from the current codebase to production.
 
----
+It is written for two goals:
 
-## Phase 0 – Foundations & Environment
-
-- **0.1 – Dependencies & tooling**
-  - Ensure Node.js 18+ is installed.
-  - Install project deps: `npm install`.
-  - Confirm `wrangler` is installed and logged in to your Cloudflare account.
-
-- **0.2 – Cloudflare resources**
-  - Create:
-    - **AI binding**: `AI` (Cloudflare AI).
-    - **Vectorize index**: e.g. `smartfinance-vector`.
-    - **KV namespace**: e.g. `FINANCIAL_DATA` (for RAG metadata).
-    - **(Optional now, required later)**: D1 DB or other storage for user financial data.
-  - Wire bindings in `wrangler.toml` (AI, VECTORIZE, FINANCIAL_DATA, DB if used).
-
-- **0.3 – Local env**
-  - Configure `.env.local` for:
-    - `NEXT_PUBLIC_APP_URL`
-    - `NEXT_PUBLIC_GEMINI_API_KEY` (if using Gemini for the main agent).
-    - Any API keys for calling the Workers from Next.js.
+1. Build the product in a practical order.
+2. Help you learn Cloudflare and LangGraph while building.
 
 ---
 
-## Phase 1 – Static Knowledge RAG (Scholarships, Grants, Cost of Living)
+## 0. Current State Snapshot
 
-**Goal:** Implement a solid **RAG layer** using Cloudflare **Vectorize + KV** that powers:
-- Scholarships & grants suggestions.
-- Cost-of-living and investment context.
+### What already exists
 
-Steps:
+- Next.js frontend with landing page, login UI, dashboard UI, AI advisor UI, and charts.
+- A basic Cloudflare Worker (`workers/ai-service.ts`) that handles `/api/recommendations`.
+- Vectorize + KV seeding script (`scripts/populate-vectordb.ts`) with sample financial data.
+- Wrangler config with AI, Vectorize, and KV bindings.
 
-- **1.1 – Define knowledge datasets**
-  - Expand `data/financial-aid.json` (or similar files) to include:
-    - Scholarships and grants (ids, amounts, countries, eligibility, deadlines).
-    - Investment strategies (risk levels, min amount, student friendly flags).
-    - Cost-of-living data per country/city (rent, typical monthly expenses, discounts).
+### What is missing for the target product
 
-- **1.2 – Populate Vectorize & KV**
-  - Use a Worker script like `scripts/populate-vectordb.ts` (already present) to:
-    - Build a `searchText` string for each record (name + criteria + country, etc.).
-    - Generate embeddings via Cloudflare AI (`@cf/baai/bge-base-en-v1.5`).
-    - `upsert` into `VECTORIZE` (`id`, `values`, `metadata`).
-    - Store the full JSON object in `FINANCIAL_DATA` KV using the same `id`.
-  - Run this script via `wrangler dev`/`wrangler deploy` once to seed the index.
-
-- **1.3 – RAG query endpoint**
-  - Implement a dedicated Worker route: `POST /api/rag/search`.
-  - Input: `{ query: string, filters?: { country?: string, city?: string, type?: 'scholarship' | 'grant' | 'investment' | 'cost-of-living' } }`.
-  - Flow:
-    - Generate embedding for `query`.
-    - Query `VECTORIZE` with `topK` + optional filters.
-    - Fetch full items from `FINANCIAL_DATA` KV by `match.id`.
-    - Return `{ matches: Array<{ score, type, data }> }`.
-
-Result: a reusable **RAG service** that the main financial agent can call for context.
+- No Hono API architecture.
+- No D1 schema and no real financial data persistence.
+- No Cloudflare-native auth/session system.
+- No LangGraph financial agent.
+- No production tool system for the agent.
+- No Tavily/Serper web retrieval flow.
+- No production hardening (rate limit, logging, monitoring).
 
 ---
 
-## Phase 2 – User Financial Data Model (Cloudflare-First)
+## 1. Learning Primer (Cloudflare + LangGraph)
 
-**Goal:** Persist each student’s real financial situation so the agent can do personalized reasoning.
+Use this as a quick guide while implementing.
 
-- **2.1 – Choose storage**
-  - Prefer **Cloudflare D1** (SQL) for:
-    - `users`, `accounts`, `transactions`, `budgets`, `loans`, `goals`, `agent_runs`, `notifications`.
-  - Alternatively, start with KV/DOs but plan to migrate to D1 for analytics queries.
+### Cloudflare Services (beginner explanation)
 
-- **2.2 – Design schema (D1 example)**
-  - `users(id, external_auth_id, country, university, created_at, updated_at)`
-  - `accounts(id, user_id, type, name, institution, balance, currency, created_at)`
-  - `transactions(id, user_id, account_id, amount, currency, category, description, timestamp, is_recurring)`
-  - `budgets(id, user_id, month, year, category, limit_amount, actual_amount)`
-  - `loans(id, user_id, name, principal, interest_rate, term_months, min_payment, next_due_date)`
-  - `goals(id, user_id, type, target_amount, target_date, current_amount)`
-  - `agent_runs(id, user_id, task_type, status, started_at, finished_at)`
-  - `agent_steps(id, run_id, step_index, tool_name, input_json, output_json, created_at)`
-  - `notifications(id, user_id, type, title, body, scheduled_for, read_at)`
+- **Cloudflare Pages**
+  - What it is: frontend hosting for your Next.js app.
+  - Why we use it: global edge delivery and direct Cloudflare ecosystem integration.
 
-- **2.3 – CRUD API Workers**
-  - Implement REST/RPC endpoints for:
-    - `POST /api/users` / `GET /api/me`
-    - `GET/POST /api/accounts`
-    - `GET/POST /api/transactions`
-    - `GET/POST /api/budgets`
-    - `GET/POST /api/loans`
-    - `GET/POST /api/goals`
-  - Use lightweight validation with `zod` for request/response shapes.
+- **Cloudflare Workers**
+  - What it is: serverless backend runtime at the edge.
+  - Why we use it: fast APIs, good for stateless request handling, integrates with D1/Vectorize/R2.
 
-Result: a **structured financial graph** of each student’s money that an agent can read and modify.
+- **Cloudflare D1**
+  - What it is: SQLite-based SQL database managed by Cloudflare.
+  - Why we use it: relational data for users, expenses, loans, and analytics.
 
----
+- **Cloudflare Vectorize**
+  - What it is: vector database for semantic search (embeddings).
+  - Why we use it: RAG retrieval of financial knowledge and related context.
 
-## Phase 3 – Financial Agent (LangGraph TS on Workers)
+- **Cloudflare R2**
+  - What it is: object storage for files/documents.
+  - Why we use it: store knowledge docs, chunk files, optional reports or exports.
 
-**Goal:** Build a **tool-using financial agent** that can understand the student’s state and take actions.
+- **Wrangler**
+  - What it is: CLI tool to develop/deploy Workers, manage D1 migrations, bindings, and secrets.
+  - Why we use it: it is your control panel from terminal.
 
-- **3.1 – Select LLM strategy**
-  - Primary: **Gemini 2.5 Pro** via `@google/generative-ai` (for strong reasoning + tool use).
-  - Backup: Cloudflare models (`@cf/meta/llama-2-7b-chat-int8`) for cheaper or offline-style runs.
+### LangGraph (beginner explanation)
 
-- **3.2 – Define agent tools**
-  - Tools should be plain TS functions callable from the agent:
-    - `getUserProfile(userId)`
-    - `getCashflowSummary(userId, period)`
-    - `getBudgets(userId)` / `updateBudgets(userId, plan)`
-    - `getLoans(userId)` / `updateLoanPlan(userId, plan)`
-    - `getGoals(userId)` / `updateGoals(userId, goals)`
-    - `ragSearchPrograms(query, filters)` → calls Phase 1 RAG endpoint.
-    - `analyzeCostOfLiving(userId, targetCountry, targetCity?)`
-    - `createNotification(userId, payload)`
-    - `logAgentStep(runId, stepData)`
+- **What it is**
+  - A framework to build multi-step AI agents as a graph of nodes.
 
-- **3.3 – Agent graph (LangGraph)**
-  - Build a small state graph:
-    - **Node: GatherContext**
-      - Calls tools: `getUserProfile`, `getCashflowSummary`, `getBudgets`, `getLoans`, `getGoals`.
-    - **Node: RetrieveExternalKnowledge**
-      - Calls `ragSearchPrograms` and `analyzeCostOfLiving` as needed.
-    - **Node: Plan**
-      - LLM decides which actions to take (e.g., adjust budget, propose loan plan).
-    - **Node: Act**
-      - Invokes tools like `updateBudgets`, `updateLoanPlan`, `createNotification`.
-    - **Node: Summarize**
-      - Produces a structured `AgentResult` with:
-        - natural language explanation,
-        - metrics (risk score, savings potential, DTI),
-        - concrete action list.
-  - Implement a top-level function `runFinancialAgent({ userId, taskType, input })`.
+- **Why use it**
+  - Instead of a single prompt, you define structured reasoning steps:
+    - detect intent
+    - fetch user context
+    - call tools
+    - retrieve knowledge
+    - generate final answer
 
-- **3.4 – Agent API endpoint**
-  - Cloudflare Worker route: `POST /api/agent/run`.
-  - Request: `{ userId, taskType: 'general_advice' | 'optimize_budget' | 'plan_loans' | 'cost_cutter', payload }`.
-  - Response:
-    - Initial version: simple JSON (no streaming).
-    - Later: streaming tokens over a `ReadableStream` for chat-like UI.
-
-Result: a **reusable agent core** that can serve multiple features (AI Advisor, Cost Cutter, etc.).
+- **Core concepts**
+  - **State**: shared object that moves through nodes.
+  - **Node**: one function that reads/writes state.
+  - **Edge**: routing between nodes.
+  - **Tool**: typed function the model can call (for real data actions).
 
 ---
 
-## Phase 4 – Feature Mapping to README (UI + Agent Integration)
+## 2. Target Cloudflare-Only Architecture
 
-**Goal:** Wire the agent & APIs to deliver each major feature described in `README.md`.
-
-### 4.1 – AI Financial Advisor
-
-- UI:
-  - Next.js page/component `AIAdvisor` with:
-    - User input box (question or goal).
-    - Display for advice, metrics, and recommended actions.
-- Backend:
-  - Call `POST /api/agent/run` with `taskType: 'general_advice'` and user question.
-  - Display:
-    - Advice sections: loan management, budget optimization, investments, extra income.
-    - Risk metrics: risk score, DTI, savings potential.
-  - Allow the user to “Apply plan” (e.g., accept new budget/loan plan) which re-calls `runFinancialAgent` with an `act` flag.
-
-### 4.2 – Financial Timelines
-
-- UI:
-  - `Timeline` component showing:
-    - Cashflow over time (Chart.js line/area chart).
-    - Loan payment schedule and deadlines.
-    - Income and recurring expenses.
-- Backend:
-  - Worker route `GET /api/timeline`:
-    - Combines `transactions`, `budgets`, `loans`, and `goals` into time-bucketed data.
-    - Optionally calls the agent to forecast projections (e.g., savings over next 6–12 months).
-
-### 4.3 – Cost Cutter
-
-- UI:
-  - `CostCutter` component:
-    - Category breakdown of expenses.
-    - Highlighted “unnecessary” or high-ROI cuts.
-    - Button: “Generate cost-cutting plan”.
-- Backend:
-  - `POST /api/agent/run` with `taskType: 'cost_cutter'`.
-  - Agent:
-    - Analyzes `transactions` vs `budgets`.
-    - Uses RAG to suggest local discounts/aid where relevant.
-    - Writes recommended budget limits or notifications back to DB.
-
-### 4.4 – Financial Insights
-
-- UI:
-  - `Insights` view with:
-    - Cashflow analytics.
-    - Expense pattern charts.
-    - Savings projections.
-    - Risk metrics (DTI, volatility of expenses, etc.).
-- Backend:
-  - Dedicated analytics endpoints or computed fields from D1 + optional agent calls.
-  - Use Chart.js & Framer Motion for smooth, interactive visualizations.
+```mermaid
+flowchart LR
+  U["Student User"] --> FE["Next.js 14 Frontend (Cloudflare Pages)"]
+  FE --> API["Hono API (Cloudflare Workers)"]
+  API --> AUTH["Auth Middleware (JWT/session)"]
+  API --> D1["Cloudflare D1"]
+  API --> AG["LangGraph Financial Agent"]
+  AG --> TOOLS["Agent Tools"]
+  TOOLS --> D1
+  TOOLS --> VEC["Cloudflare Vectorize"]
+  TOOLS --> R2["Cloudflare R2"]
+  TOOLS --> WEB["Tavily or Serper"]
+  AG --> GEM["Gemini API"]
+```
 
 ---
 
-## Phase 5 – Automation, Cron Jobs & Advanced Agent Behaviors
+## 3. Phase-by-Phase Plan (with Why + Beginner Steps)
 
-**Goal:** Make the agent proactive, not just reactive to user clicks.
+Each phase contains:
 
-- **5.1 – Cron-based health checks**
-  - Cloudflare cron triggers:
-    - Nightly/weekly: run the agent for active users.
-    - Check:
-      - upcoming loan due dates,
-      - overspending patterns,
-      - missed goals,
-      - soon-expiring scholarships/grants.
-    - Auto-create `notifications` and summaries.
-
-- **5.2 – Multi-step & multi-goal runs**
-  - Extend the agent graph to support:
-    - Multiple tasks in one run (e.g., budget + loans + goals).
-    - User-configurable preferences (risk tolerance, priorities).
-
-- **5.3 – Observability & safety**
-  - Log all `agent_runs` and `agent_steps` (already in schema).
-  - Add simple guardrails:
-    - Budget/loan changes require user confirmation in UI.
-    - Agent never performs irreversible destructive actions automatically.
+- Goal
+- Why this phase matters
+- Beginner-friendly build steps
+- Cloudflare/LangGraph learning outcomes
+- Deliverables
 
 ---
 
-## Phase 6 – Polish, UX, and 3D/Visual Enhancements
+### Phase 1 - Cloudflare Infrastructure Setup
 
-- **6.1 – UX & design**
-  - Smooth onboarding, tooltips explaining metrics.
-  - Clear “why” behind any recommendation (show key numbers & RAG sources).
+#### Goal
 
-- **6.2 – Three.js / 3D**
-  - Use `Three.js` to create:
-    - 3D “financial health” visualizations (e.g., orbits for goals, spikes for risk).
+Create a stable Cloudflare development and deployment foundation before feature work.
 
-- **6.3 – Charting & animation**
-  - Use `Chart.js` + Framer Motion to animate:
-    - Budget adjustments before/after agent suggestions.
-    - Loan payoff timelines and projections.
+#### Why this phase matters
+
+If infrastructure is not correct, every next phase breaks. This phase removes confusion by setting one deployment model: Pages + Workers + D1 + Vectorize (+ R2 optional).
+
+#### Beginner build steps
+
+1. Install and login:
+   - `npm install`
+   - `npx wrangler login`
+2. Prepare Worker API structure with Hono:
+   - `workers/src/index.ts`
+   - `workers/src/routes/health.ts`
+3. Create/update wrangler bindings:
+   - D1 binding
+   - Vectorize binding
+   - R2 binding (optional now)
+4. Add initial health route:
+   - `GET /health` returns `{ ok: true, env: "dev" }`
+5. Configure frontend API base URL from env, remove hardcoded worker URL.
+6. Run local:
+   - frontend: `npm run dev`
+   - worker: `npm run dev:worker`
+
+#### Cloudflare learning outcome
+
+- Understand Wrangler workflow, bindings, local worker dev, and Pages-Worker integration.
+
+#### Deliverables
+
+- Working local cloudflare-style environment.
+- Health route reachable from frontend.
 
 ---
 
-## Where to Start (Short Checklist)
+### Phase 2 - Authentication and User System
 
-1. **Confirm Cloudflare resources**: AI, Vectorize, KV, and D1 (or chosen DB) are created and bound.
-2. **Finish Phase 1**: seed Vectorize + KV and expose `/api/rag/search`.
-3. **Implement Phase 2 schema & CRUD** for user financial data in D1.
-4. **Build the Phase 3 financial agent** (`runFinancialAgent` + tools + `/api/agent/run`).
-5. **Wire UI features (Phase 4)**: AI Advisor, Timelines, Cost Cutter, Insights.
-6. **Add cron automation & polish (Phases 5–6)** when core flows are stable.
+#### Goal
 
-This roadmap keeps everything **Cloudflare-first**, while giving you a clear path from a basic RAG setup to a full **agentic financial assistant** that matches your original README vision.
+Implement secure user registration/login/session and profile storage without Firebase dependency.
+
+#### Why this phase matters
+
+Every financial record and AI response must be tied to a real user. Auth is the identity backbone.
+
+#### Beginner build steps
+
+1. Create D1 tables:
+   - `users`
+   - `financial_profiles`
+2. Add auth routes in Worker:
+   - `POST /auth/signup`
+   - `POST /auth/login`
+   - `POST /auth/logout`
+   - `GET /auth/me`
+3. Implement password hashing and JWT session handling.
+4. Add auth middleware to protect private routes.
+5. Replace frontend Firebase auth calls with backend auth endpoints.
+6. Store session token securely (HTTP-only cookie recommended).
+
+#### Cloudflare learning outcome
+
+- Learn D1 CRUD basics and how Worker middleware secures endpoints.
+
+#### Deliverables
+
+- Signup/login flow works.
+- Authenticated requests succeed.
+
+---
+
+### Phase 3 - Financial Data Layer
+
+#### Goal
+
+Persist student financial data and expose core APIs for expenses, income context, and loans.
+
+#### Why this phase matters
+
+Without real data, all analytics and agent reasoning are fake. This phase turns UI into a real app.
+
+#### Beginner build steps
+
+1. Create D1 tables:
+   - `expenses`
+   - `loans`
+2. Implement APIs:
+   - `POST /expenses`
+   - `GET /expenses`
+   - `POST /loans`
+   - `GET /loans`
+3. Reuse `financial_profiles.monthly_income` for initial income tracking.
+4. Validate all inputs using Zod.
+5. Add user-scoped queries (`WHERE user_id = ?`) to prevent data leakage.
+
+#### Cloudflare learning outcome
+
+- Learn SQL schema design in D1 and secure user-scoped data access patterns.
+
+#### Deliverables
+
+- Working financial CRUD APIs with real D1 persistence.
+
+---
+
+### Phase 4 - Financial Analytics Engine
+
+#### Goal
+
+Create reusable analytics services and expose `GET /financial-summary`.
+
+#### Why this phase matters
+
+Dashboard insights should come from deterministic formulas, not random or mocked frontend logic.
+
+#### Beginner build steps
+
+1. Build analytics service:
+   - total income
+   - total expenses
+   - remaining balance
+   - expense ratio
+   - financial health score
+2. Expose `GET /financial-summary`.
+3. Keep formulas centralized in one module for easier tuning later.
+4. Add unit tests for score calculations.
+
+#### Cloudflare learning outcome
+
+- Learn to combine D1 query results with business logic services in Workers.
+
+#### Deliverables
+
+- Dashboard can consume reliable financial summary API.
+
+---
+
+### Phase 5 - Dashboard APIs
+
+#### Goal
+
+Provide all backend endpoints required by dashboard widgets/charts/timeline.
+
+#### Why this phase matters
+
+Frontend should stop doing heavy calculations by itself. Backend should provide clean view-model APIs.
+
+#### Beginner build steps
+
+1. Add dashboard routes:
+   - `GET /dashboard/expense-summary`
+   - `GET /dashboard/financial-score`
+   - `GET /dashboard/charts`
+   - `GET /dashboard/timeline`
+2. Build aggregation queries in D1 for categories and monthly trends.
+3. Return response shapes optimized for Recharts components.
+
+#### Cloudflare learning outcome
+
+- Learn API design for frontend analytics consumption.
+
+#### Deliverables
+
+- All dashboard panels powered by backend endpoints.
+
+---
+
+### Phase 6 - LangGraph Financial Agent
+
+#### Goal
+
+Build the core agentic financial advisor using LangGraph on Worker backend.
+
+#### Why this phase matters
+
+This is the product brain. It turns static analytics into adaptive, user-specific recommendations.
+
+#### Beginner build steps
+
+1. Define agent state schema.
+2. Implement graph nodes:
+   - intent detection
+   - context builder
+   - tool selection
+   - response generation
+3. Integrate Gemini API from backend only.
+4. Create endpoint:
+   - `POST /agent/advice`
+5. Log request/response metadata into `ai_logs`.
+
+#### LangGraph learning outcome
+
+- Learn how state flows through nodes and how controlled reasoning is better than one-shot prompting.
+
+#### Deliverables
+
+- Working advisor endpoint using LangGraph graph execution.
+
+---
+
+### Phase 7 - Tool System
+
+#### Goal
+
+Implement typed tools used by the LangGraph agent.
+
+#### Why this phase matters
+
+Tools are how the AI interacts with real finance data. No tools means no trustworthy actions.
+
+#### Beginner build steps
+
+1. Implement tools:
+   - `getFinancialProfile`
+   - `getExpenses`
+   - `costCutter`
+   - `financialHealth`
+   - `loanOptimizer`
+2. Add tool registry with Zod input/output schema.
+3. Connect tool calls to LangGraph node execution.
+4. Add tests for tool functions.
+
+#### LangGraph learning outcome
+
+- Learn tool calling architecture and how to keep tool calls deterministic and auditable.
+
+#### Deliverables
+
+- Agent can fetch data and compute actionable finance recommendations.
+
+---
+
+### Phase 8 - RAG Integration
+
+#### Goal
+
+Add knowledge retrieval using Vectorize for grounded financial guidance.
+
+#### Why this phase matters
+
+Agent should not rely only on model memory. RAG improves relevance and reduces hallucination.
+
+#### Beginner build steps
+
+1. Expand financial knowledge base (budgeting, debt strategy, student finance tips).
+2. Chunk documents and create embeddings.
+3. Upsert embeddings to Vectorize and metadata to R2 or D1.
+4. Add retrieval service:
+   - semantic query
+   - top-k results
+   - source metadata
+5. Inject retrieved context in LangGraph response node.
+
+#### Cloudflare learning outcome
+
+- Learn Vectorize indexing, retrieval flow, and grounded response design.
+
+#### Deliverables
+
+- Agent can answer with internal knowledge-backed recommendations.
+
+---
+
+### Phase 9 - Web Retrieval (Tavily or Serper)
+
+#### Goal
+
+Enable extra earning recommendations using live web search + summarization.
+
+#### Why this phase matters
+
+Opportunities change frequently; static knowledge is not enough for side hustles and gigs.
+
+#### Beginner build steps
+
+1. Implement web search provider adapter (Tavily or Serper).
+2. Extract and normalize useful results (title, url, summary, freshness).
+3. Add summarization step using Gemini.
+4. Include citations in final agent response.
+5. Cache search results for cost control and speed.
+
+#### Learning outcome
+
+- Learn hybrid retrieval: internal RAG + external real-time search.
+
+#### Deliverables
+
+- Agent can return current earning opportunities with sources.
+
+---
+
+### Phase 10 - Frontend Integration
+
+#### Goal
+
+Connect all UI modules to real backend APIs and agent endpoints.
+
+#### Why this phase matters
+
+This phase converts the current UI-first prototype into a full working product.
+
+#### Beginner build steps
+
+1. Replace dashboard mock state with API client calls.
+2. Connect onboarding/profile forms to backend auth + profile APIs.
+3. Connect expense and loan forms to CRUD APIs.
+4. Connect AI chat to `/agent/advice` endpoint.
+5. Use Recharts for final analytics visualizations as per target stack.
+
+#### Learning outcome
+
+- Learn frontend-backend contract handling and typed API client patterns.
+
+#### Deliverables
+
+- End-to-end working frontend on Cloudflare Pages.
+
+---
+
+### Phase 11 - Production Hardening
+
+#### Goal
+
+Make the system secure, observable, and stable for real users.
+
+#### Why this phase matters
+
+A feature-complete app can still fail in production without guardrails.
+
+#### Beginner build steps
+
+1. Add centralized error handling and structured logs.
+2. Add rate limiting for auth and agent endpoints.
+3. Add response caching for expensive analytics/search calls.
+4. Add monitoring dashboards and alert rules.
+5. Add smoke tests and deployment checklist.
+
+#### Cloudflare learning outcome
+
+- Learn production practices in edge environments: reliability, observability, and abuse prevention.
+
+#### Deliverables
+
+- Stable production-ready release.
+
+---
+
+## 4. Recommended Backend Folder Layout
+
+Use this structure as you implement phases:
+
+```text
+workers/
+  src/
+    index.ts
+    routes/
+      health.ts
+      auth.ts
+      users.ts
+      expenses.ts
+      loans.ts
+      dashboard.ts
+      financial-summary.ts
+      agent.ts
+    middleware/
+      auth.ts
+      error-handler.ts
+      rate-limit.ts
+    db/
+      client.ts
+      repositories/
+    services/
+      analytics.service.ts
+      dashboard.service.ts
+      auth.service.ts
+    agent/
+      state.ts
+      graph.ts
+      nodes/
+    tools/
+      index.ts
+      getFinancialProfile.ts
+      getExpenses.ts
+      costCutter.ts
+      financialHealth.ts
+      loanOptimizer.ts
+    rag/
+      ingest.ts
+      retrieve.ts
+    web/
+      search.provider.ts
+      summarize.ts
+  migrations/
+```
+
+---
+
+## 5. Suggested Timeline
+
+- Week 1: Phase 1
+- Week 2: Phase 2 and Phase 3
+- Week 3: Phase 4 and Phase 5
+- Week 4: Phase 6 and Phase 7
+- Week 5: Phase 8 and Phase 9
+- Week 6: Phase 10 and Phase 11
+
+---
+
+## 6. Beginner "What to Do Next" Checklist
+
+Start with these exact steps:
+
+1. Set Cloudflare resources first (D1, Vectorize, Worker bindings, Pages project).
+2. Build Hono Worker with `/health`.
+3. Add D1 migrations and verify schema locally.
+4. Implement auth routes and middleware.
+5. Implement expenses/loans routes.
+6. Build `/financial-summary` and dashboard APIs.
+7. Build LangGraph agent with minimal tools.
+8. Add Vectorize RAG.
+9. Add Tavily/Serper retrieval.
+10. Connect all frontend tabs to APIs.
+11. Add logging/rate-limit/testing and deploy production.
+
+---
+
+## 7. Important Rules for This Project
+
+- Cloudflare-only deployment: no Vercel.
+- Keep Gemini API keys on backend only.
+- Validate all inputs with Zod.
+- Keep agent responses grounded with tools + retrieval.
+- Every phase must end with testable deliverables.
 
