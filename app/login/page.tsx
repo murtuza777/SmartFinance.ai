@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,31 +8,42 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { motion } from 'framer-motion'
-import { signInAsGuest } from '@/lib/firebase';
+import { signInAsGuest } from '@/lib/guest-auth'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { signIn, signUp, user, isGuest, refreshUser } = useAuth()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showGuestDialog, setShowGuestDialog] = useState(false)
   const [guestName, setGuestName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (user || isGuest) {
+      router.replace('/dashboard')
+    }
+  }, [user, isGuest, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
     try {
-      // For development, just check if fields are not empty
-      if (email && password) {
-        // Log the navigation attempt
-        console.log('Attempting to navigate to dashboard...')
-        // Force a hard navigation to the dashboard
-        window.location.href = '/dashboard'
-        // Alternative approach using router
-        // await router.push('/dashboard')
+      if (isLogin) {
+        await signIn(email, password)
+      } else {
+        await signUp(email, password)
       }
+      router.push('/dashboard')
     } catch (error) {
-      console.error('Navigation error:', error)
+      setError(error instanceof Error ? error.message : 'Authentication failed')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -48,9 +59,9 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await signInAsGuest(guestName.trim());
+      await refreshUser()
       setShowGuestDialog(false)
-      // Reload to update auth context
-      window.location.href = '/dashboard';
+      router.push('/dashboard')
     } catch (error) {
       console.error('Guest login failed:', error);
       alert('Failed to login as guest. Please try again.');
@@ -71,7 +82,7 @@ export default function LoginPage() {
         <Card className="w-[400px] bg-black/80 backdrop-blur-lg border-cyan-500/30">
           <CardHeader>
             <CardTitle className="text-xl text-cyan-500">
-              {isLogin ? 'Welcome to SmartFinance.AI' : 'Join SmartFinance.AI'}
+              {isLogin ? 'Welcome to BurryAI' : 'Join BurryAI'}
             </CardTitle>
             <CardDescription className="text-gray-300">
               {isLogin 
@@ -107,21 +118,20 @@ export default function LoginPage() {
               <Button 
                 type="submit" 
                 className="w-full bg-cyan-500 hover:bg-cyan-600"
-                onClick={(e) => {
-                  e.preventDefault()
-                  if (email && password) {
-                    window.location.href = '/dashboard'
-                  }
-                }}
+                disabled={isLoading}
               >
-                {isLogin ? 'Sign In' : 'Create Account'}
+                {isLoading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
               </Button>
               <Button 
+                type="button"
                 className="w-full bg-gray-700 hover:bg-gray-600 mt-4"
                 onClick={handleGuestLoginClick}
               >
                 Continue as Guest
               </Button>
+              {error ? (
+                <p className="text-sm text-red-400 text-center">{error}</p>
+              ) : null}
               <div className="text-center">
                 <button
                   type="button"

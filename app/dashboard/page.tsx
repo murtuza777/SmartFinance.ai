@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Loader2, AlertTriangle, CheckCircle2, TrendingUp, Briefcase, GraduationCap, DollarSign, CreditCard, PiggyBank, TrendingDown, History, Brain, Scissors, User, Percent, Clock } from 'lucide-react'
 import { Line, Bar, Radar, Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, RadialLinearScale, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
@@ -119,6 +120,7 @@ interface APIResponse {
 }
 
 export default function Dashboard() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [loading, setLoading] = useState(true)
   const [userData, setUserData] = useState({
@@ -154,7 +156,7 @@ export default function Dashboard() {
   const [aiData, setAiData] = useState(null)
 
   // Guest login state
-  const { isGuest, guestUser, upgradeToEmail } = useAuth();
+  const { user, loading: authLoading, isGuest, guestUser, upgradeToEmail } = useAuth();
   const [showUpgradeForm, setShowUpgradeForm] = useState(false);
   const [upgradeEmail, setUpgradeEmail] = useState('');
   const [upgradePassword, setUpgradePassword] = useState('');
@@ -179,6 +181,12 @@ export default function Dashboard() {
       alert('Failed to upgrade account. Please try again.');
     }
   };
+
+  useEffect(() => {
+    if (!authLoading && !user && !isGuest) {
+      router.replace('/login')
+    }
+  }, [authLoading, user, isGuest, router])
 
   useEffect(() => {
     // Simulate data loading
