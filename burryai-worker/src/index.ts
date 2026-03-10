@@ -6,6 +6,9 @@ import dashboardRoutes from "./routes/dashboard"
 import expensesRoutes from "./routes/expenses"
 import financialSummaryRoutes from "./routes/financial-summary"
 import loansRoutes from "./routes/loans"
+import { handleAppError } from "./middleware/error-handler"
+import { requestContext, getMetricsSnapshot } from "./middleware/request-context"
+import { createRateLimit } from "./middleware/rate-limit"
 import profileRoutes from "./routes/profile"
 import type { AppEnv } from "./types"
 
@@ -33,6 +36,7 @@ app.use(
     maxAge: 86400
   })
 )
+app.use("*", requestContext)
 
 app.get("/health", (c) => {
   return c.json({
@@ -42,6 +46,18 @@ app.get("/health", (c) => {
   })
 })
 
+app.get("/metrics", (c) => {
+  return c.json({
+    ok: true,
+    counters: getMetricsSnapshot()
+  })
+})
+
+const authRateLimit = createRateLimit({ limit: 20, windowMs: 60 * 1000 })
+const agentRateLimit = createRateLimit({ limit: 12, windowMs: 60 * 1000 })
+
+app.use("/auth/*", authRateLimit)
+app.use("/api/auth/*", authRateLimit)
 app.route("/auth", authRoutes)
 app.route("/api/auth", authRoutes)
 app.route("/expenses", expensesRoutes)
@@ -56,7 +72,10 @@ app.route("/financial-summary", financialSummaryRoutes)
 app.route("/api/financial-summary", financialSummaryRoutes)
 app.route("/dashboard", dashboardRoutes)
 app.route("/api/dashboard", dashboardRoutes)
+app.use("/agent/*", agentRateLimit)
+app.use("/api/agent/*", agentRateLimit)
 app.route("/agent", agentRoutes)
 app.route("/api/agent", agentRoutes)
+app.onError(handleAppError)
 
 export default app
