@@ -60,11 +60,14 @@ async function issueSessionCookie(c: Context<AppEnv>, userId: string, email: str
     secret
   )
 
+  const secure = getSecureCookieFlag(c.req.url)
   setCookie(c, "session", token, {
     path: "/",
     httpOnly: true,
-    sameSite: "Lax",
-    secure: getSecureCookieFlag(c.req.url),
+    // Browsers reject SameSite=None cookies unless Secure=true.
+    // For local HTTP dev, use Lax; for HTTPS deployments, use None.
+    sameSite: secure ? "None" : "Lax",
+    secure,
     maxAge: getSessionTtlSeconds()
   })
 }

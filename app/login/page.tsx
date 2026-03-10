@@ -99,34 +99,45 @@ export default function LoginPage() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="flex items-center justify-center p-6"
         >
-          <div className="w-full max-w-md rounded-2xl border border-cyan-500/20 bg-slate-900/70 backdrop-blur p-7">
-            <div className="mb-6">
-              <BrandIdentity size={30} textClassName="text-2xl font-semibold text-cyan-300 lg:hidden" />
-              <h2 className="text-2xl font-semibold mt-4">
+          <div className="w-full max-w-md rounded-3xl border border-cyan-500/25 bg-gradient-to-b from-slate-900/80 via-slate-950/90 to-slate-950 backdrop-blur-xl p-8 shadow-[0_24px_80px_rgba(8,145,178,0.45)] ring-1 ring-cyan-400/30">
+            <div className="mb-7 space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-slate-900/70 px-3 py-1 text-xs font-medium text-cyan-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                Secure BurryAI access
+              </div>
+              <BrandIdentity size={30} textClassName="text-2xl font-semibold text-cyan-200 lg:hidden" />
+              <h2 className="text-2xl font-semibold mt-1">
                 {mode === 'login' ? 'Sign in to BurryAI' : 'Create your account'}
               </h2>
-              <p className="text-slate-300 mt-2">
+              <p className="text-slate-300/90 text-sm leading-relaxed">
                 {mode === 'login'
                   ? 'Continue with your account to open the dashboard.'
                   : 'Create your account and start onboarding.'}
               </p>
             </div>
 
-            <form className="space-y-4" onSubmit={handleAuthSubmit}>
+            <form className="space-y-5" onSubmit={handleAuthSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="student@university.edu"
-                  className="bg-slate-950/70 border-cyan-500/30"
+                  className="bg-slate-950/80 border-cyan-500/30 focus-visible:ring-cyan-400/60 focus-visible:ring-2"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label
+                  htmlFor="password"
+                  className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400"
+                >
+                  Password
+                </Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -134,7 +145,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     minLength={8}
-                    className="bg-slate-950/70 border-cyan-500/30 pr-10"
+                    className="bg-slate-950/80 border-cyan-500/30 pr-10 focus-visible:ring-cyan-400/60 focus-visible:ring-2"
                     required
                   />
                   <button
@@ -153,7 +164,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                className="w-full h-11 rounded-full bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-300 text-slate-950 font-semibold tracking-wide shadow-[0_18px_55px_rgba(34,211,238,0.55)] hover:shadow-[0_22px_70px_rgba(34,211,238,0.6)] hover:brightness-105 active:brightness-95 focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-0"
               >
                 {loading ? (
                   <span className="inline-flex items-center">
@@ -168,17 +179,28 @@ export default function LoginPage() {
                 )}
               </Button>
 
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-cyan-500/15" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-slate-950/60 px-3 text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                    Or
+                  </span>
+                </div>
+              </div>
+
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowGuestDialog(true)}
-                className="w-full border-slate-700 bg-slate-900 hover:bg-slate-800"
+                className="w-full h-11 rounded-full border border-cyan-500/25 bg-slate-950/45 hover:bg-slate-900/60 text-slate-100 shadow-[0_12px_40px_rgba(2,6,23,0.65)] hover:border-cyan-400/35 focus-visible:ring-2 focus-visible:ring-cyan-300/50 focus-visible:ring-offset-0"
               >
-                <UserCircle2 className="h-4 w-4 mr-2" />
+                <UserCircle2 className="h-4 w-4 mr-2 text-cyan-200" />
                 Continue as Guest
               </Button>
 
-              <p className="text-sm text-center text-slate-300 pt-1">
+              <p className="text-xs text-center text-slate-400 pt-1">
                 {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
                 <button
                   type="button"

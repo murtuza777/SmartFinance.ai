@@ -29,8 +29,23 @@ export async function proxyToWorker(
     redirect: "manual"
   })
 
+  const responseHeaders = new Headers(upstream.headers)
+  // Ensure auth cookies set by the worker are always preserved
+  // on the proxied response back to the browser.
+  responseHeaders.delete("set-cookie")
+
+  const setCookiesFromApi =
+    typeof (upstream.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie === "function"
+      ? (upstream.headers as Headers & { getSetCookie: () => string[] }).getSetCookie()
+      : []
+  const fallbackSetCookie = upstream.headers.get("set-cookie")
+  const setCookies = setCookiesFromApi.length > 0 ? setCookiesFromApi : fallbackSetCookie ? [fallbackSetCookie] : []
+  for (const setCookie of setCookies) {
+    responseHeaders.append("set-cookie", setCookie)
+  }
+
   return new NextResponse(upstream.body, {
     status: upstream.status,
-    headers: new Headers(upstream.headers)
+    headers: responseHeaders
   })
 }

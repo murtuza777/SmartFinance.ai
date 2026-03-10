@@ -1,7 +1,10 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_WORKER_API_BASE_URL ||
-  "https://burryai-worker.mdmurtuzaali777.workers.dev"
+const API_BASE = (() => {
+  const directApiBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_WORKER_API_BASE_URL
+  const useDirectWorkerApi = process.env.NEXT_PUBLIC_USE_DIRECT_WORKER_API === "true"
+  const base = useDirectWorkerApi && directApiBase ? directApiBase : "/api"
+  return base.replace(/\/+$/, "")
+})()
 
 export interface AppUser {
   id: string

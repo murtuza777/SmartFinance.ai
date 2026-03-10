@@ -63,17 +63,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    const signedInUser = await loginRequest(email, password)
-    setUser(signedInUser)
-    setGuestUser(null)
-    logoutGuest()
+    await loginRequest(email, password)
+    const signedInUser = await syncUserFromBackend()
+    if (!signedInUser) {
+      throw new Error('Sign in succeeded but session was not established. Please try again.')
+    }
   }
 
   const signUp = async (email: string, password: string) => {
-    const signedUpUser = await signupRequest(email, password)
-    setUser(signedUpUser)
-    setGuestUser(null)
-    logoutGuest()
+    await signupRequest(email, password)
+    const signedUpUser = await syncUserFromBackend()
+    if (!signedUpUser) {
+      throw new Error('Account created but session was not established. Please try signing in.')
+    }
   }
 
   const logout = async () => {
