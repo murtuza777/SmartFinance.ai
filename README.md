@@ -1,9 +1,3 @@
-Below is a **clean README** you can use for the repo first. After that, I’ll give you a **Codex prompt** that will scaffold **Cloudflare Auth + D1 database + Workers API** for the project.
-
----
-
-# README — BurryAI
-
 ## BurryAI
 
 **AI Financial Advisor for Students**
@@ -440,11 +434,3 @@ and deploying with:
 
 wrangler deploy
 ```
-
----
-
-If you want, I can also give you **one extremely powerful thing next**:
-
-A **Financial Agent architecture for BurryAI** (the brain that powers everything).
-
-It will make your project look like a **real AI agent system instead of just a chatbot**, which is very impressive for a final-year project.
