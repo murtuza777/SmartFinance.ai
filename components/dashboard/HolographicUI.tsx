@@ -16,7 +16,7 @@ export const HolographicButton: React.FC<HolographicButtonProps> = ({
   className = '' 
 }) => (
   <motion.button
-    className={`px-4 py-2 bg-transparent border border-cyan-500 rounded-full text-cyan-500 hover:bg-cyan-500 hover:text-black transition-all duration-300 flex items-center justify-center space-x-2 ${className}`}
+    className={`px-4 py-2 rounded-full transition-all duration-300 flex items-center justify-center space-x-2 ${className}`}
     whileHover={{ scale: 1.05 }}
     whileTap={{ scale: 0.95 }}
     onClick={onClick}

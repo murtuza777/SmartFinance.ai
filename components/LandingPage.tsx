@@ -120,7 +120,7 @@ export default function LandingPage() {
             onClick={() => router.push('/login')}
             className="px-6 py-2 min-w-[150px] flex items-center justify-center bg-cyan-500 text-black"
           >
-            Login / Sign Up
+            Sign in
           </HolographicButton>
         </div>
       </nav>
@@ -133,9 +133,6 @@ export default function LandingPage() {
             transition={{ duration: 0.8 }}
             className="max-w-4xl"
           >
-            <div className="mb-4">
-              <BrandIdentity size={44} textClassName="text-3xl font-bold text-cyan-300" />
-            </div>
             <h1 className="text-5xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
               AI Financial Advisor For Students
             </h1>
@@ -301,7 +298,7 @@ export default function LandingPage() {
               className="bg-cyan-500 text-black px-8 py-3"
               icon={Rocket}
             >
-              Login / Sign Up
+              Sign in
             </HolographicButton>
           </HolographicCard>
         </div>
