@@ -20,7 +20,17 @@
 			"database_id": "170c5ca9-cc9e-4e45-9ed9-d77a0dec1f98",
 			"migrations_dir": "../workers/migrations"
 		}
-	]
+	],
+	"vectorize": [
+		{
+			"binding": "FINANCE_KB_INDEX",
+			"index_name": "financial-data"
+		}
+	],
+	"vars": {
+		"ENABLE_VECTORIZE_RAG": "false",
+		"WEB_SEARCH_PROVIDER": "tavily"
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

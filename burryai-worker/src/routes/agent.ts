@@ -47,12 +47,17 @@ agentRoutes.post("/advice", async (c) => {
 
   try {
     const userId = c.get("userId")
+    const useVectorize = c.env.ENABLE_VECTORIZE_RAG === "true"
     const result = await runFinancialAgent({
       db: c.env.DB,
       userId,
       userMessage: body.value.message,
       geminiApiKey: c.env.GEMINI_API_KEY,
-      geminiModel: c.env.GEMINI_MODEL
+      geminiModel: c.env.GEMINI_MODEL,
+      knowledgeIndex: useVectorize ? c.env.FINANCE_KB_INDEX : undefined,
+      webSearchProvider: c.env.WEB_SEARCH_PROVIDER,
+      tavilyApiKey: c.env.TAVILY_API_KEY,
+      serperApiKey: c.env.SERPER_API_KEY
     })
 
     await c.env.DB.prepare(
@@ -65,7 +70,16 @@ agentRoutes.post("/advice", async (c) => {
       response: result.response,
       model_used: result.modelUsed,
       intent: result.intent,
-      used_tools: result.selectedTools
+      used_tools: result.selectedTools,
+      knowledge_sources: result.knowledgeChunks.map((chunk) => ({
+        title: chunk.title,
+        source: chunk.source
+      })),
+      web_sources: result.webResults.map((item) => ({
+        title: item.title,
+        url: item.url,
+        source: item.source
+      }))
     })
   } catch {
     return c.json({ error: "Failed to generate financial advice" }, 500)
