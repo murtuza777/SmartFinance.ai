@@ -1,4 +1,11 @@
-import type { AgentContextData, AgentIntent, AgentToolOutput } from "../state"
+import type {
+  AgentContextData,
+  AgentIntent,
+  AgentKnowledgeChunk,
+  AgentToolOutput,
+  AgentWebResult
+} from "../state"
+import { summarizeWebResults } from "../../web/summarize"
 
 function formatContext(context: AgentContextData): string {
   const topCategories =
@@ -20,13 +27,41 @@ function formatContext(context: AgentContextData): string {
   ].join("\n")
 }
 
-function buildFallbackResponse(intent: AgentIntent, toolOutputs: AgentToolOutput[]): string {
+function formatKnowledge(chunks: AgentKnowledgeChunk[]): string {
+  if (chunks.length === 0) {
+    return "No internal knowledge retrieved."
+  }
+
+  return chunks.map((chunk) => `- ${chunk.title}: ${chunk.content} (source: ${chunk.source})`).join("\n")
+}
+
+function buildFallbackResponse(
+  intent: AgentIntent,
+  toolOutputs: AgentToolOutput[],
+  knowledgeChunks: AgentKnowledgeChunk[],
+  webResults: AgentWebResult[]
+): string {
   const intro = `Intent detected: ${intent}.`
-  const insights = toolOutputs.map((tool) => `- ${tool.content}`).join("\n")
+  const insights = toolOutputs.map((tool) => `- ${tool.summary}`).join("\n")
+  const groundedKnowledge = formatKnowledge(knowledgeChunks)
+  const webSummary = summarizeWebResults(webResults)
   const closing =
     "Action plan: prioritize high-impact cuts first, protect minimum loan payments, and track progress weekly."
 
-  return [intro, "", "Insights:", insights, "", closing].join("\n")
+  return [
+    intro,
+    "",
+    "Insights:",
+    insights,
+    "",
+    "Knowledge context:",
+    groundedKnowledge,
+    "",
+    "Web findings:",
+    webSummary,
+    "",
+    closing
+  ].join("\n")
 }
 
 type GeminiGenerationResult = {
@@ -106,6 +141,8 @@ export async function generateAgentResponse(params: {
   userMessage: string
   context: AgentContextData
   toolOutputs: AgentToolOutput[]
+  knowledgeChunks: AgentKnowledgeChunk[]
+  webResults: AgentWebResult[]
 }): Promise<{ response: string; modelUsed: string }> {
   const prompt = [
     "You are BurryAI, a financial advisor for students.",
@@ -119,9 +156,17 @@ export async function generateAgentResponse(params: {
     formatContext(params.context),
     "",
     "Tool outputs:",
-    ...params.toolOutputs.map((tool) => `- ${tool.name}: ${tool.content}`),
+    ...params.toolOutputs.map((tool) => `- ${tool.name}: ${tool.summary}`),
     "",
-    "Return clear recommendations in plain text with short action steps."
+    "Knowledge snippets:",
+    ...params.knowledgeChunks.map(
+      (chunk) => `- ${chunk.title}: ${chunk.content} (source: ${chunk.source}, score: ${chunk.score})`
+    ),
+    "",
+    "Web retrieval results:",
+    ...params.webResults.map((result) => `- ${result.title} | ${result.url} | ${result.snippet}`),
+    "",
+    "Return clear recommendations in plain text with short action steps, and cite knowledge/web sources inline when used."
   ].join("\n")
 
   if (params.apiKey) {
@@ -139,7 +184,12 @@ export async function generateAgentResponse(params: {
   }
 
   return {
-    response: buildFallbackResponse(params.intent, params.toolOutputs),
+    response: buildFallbackResponse(
+      params.intent,
+      params.toolOutputs,
+      params.knowledgeChunks,
+      params.webResults
+    ),
     modelUsed: "fallback:rule-based"
   }
 }

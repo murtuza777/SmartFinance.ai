@@ -3,6 +3,8 @@ import { detectIntent } from "./nodes/detect-intent"
 import { generateAgentResponse } from "./nodes/generate-response"
 import { runSelectedTools } from "./nodes/run-tools"
 import { selectToolsByIntent } from "./nodes/select-tools"
+import { retrieveKnowledgeContext } from "../rag/retrieve"
+import { searchWebForIncomeIdeas } from "../web/search.provider"
 import type { AgentState } from "./state"
 
 export async function runFinancialAgent(params: {
@@ -11,18 +13,44 @@ export async function runFinancialAgent(params: {
   userMessage: string
   geminiApiKey?: string
   geminiModel?: string
+  knowledgeIndex?: Vectorize
+  webSearchProvider?: string
+  tavilyApiKey?: string
+  serperApiKey?: string
 }): Promise<AgentState> {
   const intent = detectIntent(params.userMessage)
   const context = await buildAgentContext(params.db, params.userId)
   const selectedTools = selectToolsByIntent(intent)
-  const toolOutputs = runSelectedTools(selectedTools, context)
+  const toolOutputs = await runSelectedTools({
+    db: params.db,
+    userId: params.userId,
+    selectedTools,
+    context
+  })
+  const knowledgeChunks = await retrieveKnowledgeContext({
+    query: params.userMessage,
+    index: params.knowledgeIndex,
+    topK: 3
+  })
+  const webResults = await searchWebForIncomeIdeas({
+    intent,
+    message: params.userMessage,
+    env: {
+      provider: params.webSearchProvider,
+      tavilyApiKey: params.tavilyApiKey,
+      serperApiKey: params.serperApiKey
+    },
+    topK: 3
+  })
   const generation = await generateAgentResponse({
     apiKey: params.geminiApiKey,
     preferredModel: params.geminiModel,
     intent,
     userMessage: params.userMessage,
     context,
-    toolOutputs
+    toolOutputs,
+    knowledgeChunks,
+    webResults
   })
 
   return {
@@ -32,6 +60,8 @@ export async function runFinancialAgent(params: {
     context,
     selectedTools,
     toolOutputs,
+    knowledgeChunks,
+    webResults,
     response: generation.response,
     modelUsed: generation.modelUsed
   }
