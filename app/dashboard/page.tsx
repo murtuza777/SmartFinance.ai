@@ -24,6 +24,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  getDashboardCharts,
+  getDashboardFinancialScore,
+  getDashboardTimeline,
   getExpenses,
   getFinancialProfile,
   getFinancialSummary,
@@ -72,6 +75,29 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [summary, setSummary] = useState<FinancialSummary>(DEFAULT_SUMMARY)
+  const [dashboardScore, setDashboardScore] = useState<{ score: number; grade: string }>({
+    score: 0,
+    grade: 'F'
+  })
+  const [dashboardCharts, setDashboardCharts] = useState<{
+    expenseByCategory: Array<{ name: string; value: number }>
+    monthlyTrend: Array<{ month: string; expenses: number; income: number; loanPayments: number; net: number }>
+    cashflowBreakdown: Array<{ name: string; value: number }>
+  }>({
+    expenseByCategory: [],
+    monthlyTrend: [],
+    cashflowBreakdown: []
+  })
+  const [dashboardTimeline, setDashboardTimeline] = useState<
+    Array<{
+      id: string
+      type: 'loan_payment_due' | 'expense_logged'
+      date: string
+      title: string
+      amount: number
+      status: 'upcoming' | 'recorded'
+    }>
+  >([])
   const [profile, setProfile] = useState<FinancialProfile | null>(null)
   const [expenses, setExpenses] = useState<ExpenseItem[]>([])
   const [loans, setLoans] = useState<LoanItem[]>([])
@@ -91,11 +117,14 @@ export default function DashboardPage() {
     setError('')
     setLoading(true)
     try {
-      const [profileData, summaryData, expenseData, loanData] = await Promise.all([
+      const [profileData, summaryData, expenseData, loanData, scoreData, chartsData, timelineData] = await Promise.all([
         getFinancialProfile(),
         getFinancialSummary(),
         getExpenses(),
-        getLoans()
+        getLoans(),
+        getDashboardFinancialScore(),
+        getDashboardCharts(),
+        getDashboardTimeline()
       ])
 
       if (!profileData.onboarding_completed) {
@@ -107,6 +136,12 @@ export default function DashboardPage() {
       setSummary(summaryData)
       setExpenses(expenseData.expenses)
       setLoans(loanData.loans)
+      setDashboardScore({
+        score: scoreData.score,
+        grade: scoreData.grade
+      })
+      setDashboardCharts(chartsData.charts)
+      setDashboardTimeline(timelineData.timeline)
       setProfileForm({
         full_name: profileData.full_name,
         country: profileData.country,
@@ -186,6 +221,24 @@ export default function DashboardPage() {
   )
 
   const cashFlowChartData = useMemo(() => {
+    if (dashboardCharts.cashflowBreakdown.length > 0) {
+      const breakdownMap = new Map(dashboardCharts.cashflowBreakdown.map((item) => [item.name, item.value]))
+      const expensesValue = Number(breakdownMap.get('Expenses') ?? 0)
+      const loanPaymentsValue = Number(breakdownMap.get('Loan Payments') ?? 0)
+      const remainingValue = Number(breakdownMap.get('Remaining') ?? 0)
+      return {
+        labels: ['Expenses', 'Loan Payments', 'Remaining'],
+        datasets: [
+          {
+            data: [expensesValue, loanPaymentsValue, Math.max(remainingValue, 0)],
+            backgroundColor: ['rgba(239, 68, 68, 0.75)', 'rgba(245, 158, 11, 0.75)', 'rgba(16, 185, 129, 0.8)'],
+            borderColor: ['rgba(239, 68, 68, 1)', 'rgba(245, 158, 11, 1)', 'rgba(16, 185, 129, 1)'],
+            borderWidth: 1
+          }
+        ]
+      }
+    }
+
     const remaining = Math.max(summary.remaining_balance, 0)
     return {
       labels: ['Expenses', 'Loan Payments', 'Remaining'],
@@ -198,9 +251,25 @@ export default function DashboardPage() {
         }
       ]
     }
-  }, [summary.monthly_loan_payments, summary.remaining_balance, summary.total_expenses])
+  }, [dashboardCharts.cashflowBreakdown, summary.monthly_loan_payments, summary.remaining_balance, summary.total_expenses])
 
   const projectionChartData = useMemo(() => {
+    if (dashboardCharts.monthlyTrend.length > 0) {
+      return {
+        labels: dashboardCharts.monthlyTrend.map((item) => item.month),
+        datasets: [
+          {
+            label: 'Projected Net Balance',
+            data: dashboardCharts.monthlyTrend.map((item) => item.net),
+            borderColor: 'rgba(34, 211, 238, 1)',
+            backgroundColor: 'rgba(34, 211, 238, 0.2)',
+            fill: true,
+            tension: 0.35
+          }
+        ]
+      }
+    }
+
     const monthlyNet = summary.remaining_balance
     const points = Array.from({ length: 6 }, (_, index) => {
       return Math.round(monthlyNet * (index + 1))
@@ -219,7 +288,7 @@ export default function DashboardPage() {
         }
       ]
     }
-  }, [summary.remaining_balance])
+  }, [dashboardCharts.monthlyTrend, summary.remaining_balance])
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview' },
@@ -313,7 +382,8 @@ export default function DashboardPage() {
                   <TrendingUp className="h-4 w-4 text-emerald-300" />
                   Health Score
                 </p>
-                <p className="text-3xl font-semibold mt-2">{summary.financial_health_score}/100</p>
+                <p className="text-3xl font-semibold mt-2">{dashboardScore.score}/100</p>
+                <p className="text-xs text-slate-300 mt-1">Grade {dashboardScore.grade}</p>
               </HolographicCard>
             </div>
 
@@ -429,13 +499,33 @@ export default function DashboardPage() {
         ) : null}
 
         {activeTab === 'timeline' ? (
-          <FinancialTimeline
-            userData={{
-              loanAmount: userData.loanAmount,
-              monthlyIncome: userData.monthlyIncome,
-              monthlyExpenses: userData.monthlyExpenses
-            }}
-          />
+          <div className="space-y-6">
+            <FinancialTimeline
+              userData={{
+                loanAmount: userData.loanAmount,
+                monthlyIncome: userData.monthlyIncome,
+                monthlyExpenses: userData.monthlyExpenses
+              }}
+            />
+            <HolographicCard>
+              <h3 className="text-lg font-semibold mb-3">Backend Timeline Events</h3>
+              <div className="space-y-3">
+                {dashboardTimeline.length === 0 ? (
+                  <p className="text-slate-400 text-sm">No timeline events available yet.</p>
+                ) : (
+                  dashboardTimeline.slice(0, 10).map((event) => (
+                    <div key={event.id} className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
+                      <p className="font-medium">{event.title}</p>
+                      <p className="text-sm text-slate-300">${event.amount.toLocaleString()}</p>
+                      <p className="text-xs text-slate-400">
+                        {event.date} | {event.status}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </HolographicCard>
+          </div>
         ) : null}
 
         {activeTab === 'profile' ? (
@@ -566,3 +656,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+

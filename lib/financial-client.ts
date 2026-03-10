@@ -49,6 +49,60 @@ export interface LoanItem {
   updated_at: string
 }
 
+export interface DashboardExpenseSummary {
+  summary: {
+    total_expenses: number
+    monthly_income: number
+    remaining_balance: number
+    by_category: Array<{
+      category: string
+      amount: number
+      percentage: number
+    }>
+  }
+}
+
+export interface DashboardFinancialScore {
+  score: number
+  grade: "A" | "B" | "C" | "D" | "F"
+  metrics: {
+    total_income: number
+    total_expenses: number
+    monthly_loan_payments: number
+    remaining_balance: number
+    expense_ratio: number
+    debt_to_income_ratio: number
+  }
+}
+
+export interface DashboardCharts {
+  charts: {
+    expenseByCategory: Array<{ name: string; value: number }>
+    monthlyTrend: Array<{ month: string; expenses: number; income: number; loanPayments: number; net: number }>
+    cashflowBreakdown: Array<{ name: string; value: number }>
+  }
+}
+
+export interface DashboardTimeline {
+  timeline: Array<{
+    id: string
+    type: "loan_payment_due" | "expense_logged"
+    date: string
+    title: string
+    amount: number
+    status: "upcoming" | "recorded"
+  }>
+}
+
+export interface AgentAdviceResponse {
+  response: string
+  model_used: string
+  intent: "budgeting" | "debt" | "savings" | "income" | "general"
+  used_tools: Array<
+    "financial_summary" | "expense_insights" | "loan_insights" | "savings_planner"
+  >
+}
+
 type ErrorResponse = {
   error?: string
 }
@@ -148,4 +202,40 @@ export async function createLoan(input: {
   if (!response.ok) throw new Error(await parseError(response))
   const payload = (await response.json()) as { loan: LoanItem }
   return payload.loan
+}
+
+export async function getDashboardExpenseSummary(): Promise<DashboardExpenseSummary> {
+  const response = await apiRequest("dashboard/expense-summary", { method: "GET" })
+  if (!response.ok) throw new Error(await parseError(response))
+  return (await response.json()) as DashboardExpenseSummary
+}
+
+export async function getDashboardFinancialScore(): Promise<DashboardFinancialScore> {
+  const response = await apiRequest("dashboard/financial-score", { method: "GET" })
+  if (!response.ok) throw new Error(await parseError(response))
+  return (await response.json()) as DashboardFinancialScore
+}
+
+export async function getDashboardCharts(): Promise<DashboardCharts> {
+  const response = await apiRequest("dashboard/charts", { method: "GET" })
+  if (!response.ok) throw new Error(await parseError(response))
+  return (await response.json()) as DashboardCharts
+}
+
+export async function getDashboardTimeline(): Promise<DashboardTimeline> {
+  const response = await apiRequest("dashboard/timeline", { method: "GET" })
+  if (!response.ok) throw new Error(await parseError(response))
+  return (await response.json()) as DashboardTimeline
+}
+
+export async function getAgentAdvice(message: string): Promise<AgentAdviceResponse> {
+  const response = await apiRequest("agent/advice", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ message })
+  })
+  if (!response.ok) throw new Error(await parseError(response))
+  return (await response.json()) as AgentAdviceResponse
 }

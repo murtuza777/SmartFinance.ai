@@ -1,5 +1,7 @@
 import { Hono } from "hono"
+import agentRoutes from "./routes/agent"
 import authRoutes from "./routes/auth"
+import dashboardRoutes from "./routes/dashboard"
 import expensesRoutes from "./routes/expenses"
 import financialSummaryRoutes from "./routes/financial-summary"
 import loansRoutes from "./routes/loans"
@@ -28,5 +30,9 @@ app.route("/user/profile", profileRoutes)
 app.route("/api/user/profile", profileRoutes)
 app.route("/financial-summary", financialSummaryRoutes)
 app.route("/api/financial-summary", financialSummaryRoutes)
+app.route("/dashboard", dashboardRoutes)
+app.route("/api/dashboard", dashboardRoutes)
+app.route("/agent", agentRoutes)
+app.route("/api/agent", agentRoutes)
 
 export default app
