@@ -1,3 +1,8 @@
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_WORKER_API_BASE_URL ||
+  "https://burryai-worker.mdmurtuzaali777.workers.dev"
+
 export interface AppUser {
   id: string
   email: string
@@ -25,7 +30,7 @@ async function parseError(response: Response): Promise<string> {
 }
 
 async function authPost(path: string, payload?: Record<string, unknown>): Promise<Response> {
-  return fetch(`/api/auth/${path}`, {
+  return fetch(`${API_BASE}/auth/${path}`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -61,7 +66,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function me(): Promise<AppUser | null> {
-  const response = await fetch("/api/auth/me", {
+  const response = await fetch(`${API_BASE}/auth/me`, {
     method: "GET",
     credentials: "include"
   })

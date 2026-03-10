@@ -1,3 +1,8 @@
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_WORKER_API_BASE_URL ||
+  "https://burryai-worker.mdmurtuzaali777.workers.dev"
+
 export type RiskTolerance = "low" | "moderate" | "high"
 
 export interface FinancialProfile {
@@ -119,7 +124,7 @@ async function parseError(response: Response): Promise<string> {
 }
 
 async function apiRequest(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(`/api/${path}`, {
+  return fetch(`${API_BASE}/${path}`, {
     credentials: "include",
     ...init
   })
