@@ -1,361 +1,195 @@
-import { useState, useEffect } from 'react'
-import { HolographicCard } from '@/components/dashboard/HolographicUI'
-import { Bot, Send, AlertTriangle, PiggyBank, DollarSign, TrendingUp } from 'lucide-react'
+import { useEffect, useState } from "react"
+import { HolographicCard } from "@/components/dashboard/HolographicUI"
+import { Bot, AlertTriangle, Send, TrendingUp } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Line, Bar, Doughnut } from 'react-chartjs-2'
+import { Bar, Doughnut, Line } from "react-chartjs-2"
+import { getAgentAdvice } from "@/lib/financial-client"
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  reaction?: '👍' | '👎' | null;
-  visualData?: {
-    type: 'line' | 'bar' | 'doughnut' | null;
-    data?: any;
-  };
-}
+type ChartType = "line" | "bar" | "doughnut" | null
 
-interface ChatResponse {
-  response: string;
+type Message = {
+  role: "user" | "assistant"
+  content: string
+  timestamp: Date
+  modelUsed?: string
+  visualData: {
+    type: ChartType
+    data: unknown
+  }
 }
 
 interface AIAdvisorProps {
   userData: {
-    monthlyIncome: number;
-    monthlyExpenses: number;
-    country: string;
+    monthlyIncome: number
+    monthlyExpenses: number
+    country: string
   }
 }
 
-// Gemini API response interface
-interface GeminiResponse {
-  candidates: Array<{
-    content: {
-      parts: Array<{
-        text: string;
-      }>;
-    };
-    finishReason?: string;
-  }>;
-  error?: {
-    message: string;
-  };
+function detectVisualizationType(query: string): ChartType {
+  const normalized = query.toLowerCase()
+
+  const rules: Array<{ type: Exclude<ChartType, null>; keywords: string[] }> = [
+    {
+      type: "line",
+      keywords: ["trend", "over time", "timeline", "progress", "forecast", "projection"]
+    },
+    {
+      type: "bar",
+      keywords: ["compare", "comparison", "difference", "versus", "breakdown"]
+    },
+    {
+      type: "doughnut",
+      keywords: ["distribution", "allocation", "split", "ratio", "percentage"]
+    }
+  ]
+
+  for (const rule of rules) {
+    if (rule.keywords.some((keyword) => normalized.includes(keyword))) {
+      return rule.type
+    }
+  }
+
+  return null
+}
+
+function generateVisualizationData(type: Exclude<ChartType, null>, userData: AIAdvisorProps["userData"]) {
+  const monthlyNet = Math.max(userData.monthlyIncome - userData.monthlyExpenses, 0)
+
+  if (type === "line") {
+    const points = Array.from({ length: 6 }, (_, index) => Math.round(monthlyNet * (index + 1)))
+    return {
+      labels: ["M1", "M2", "M3", "M4", "M5", "M6"],
+      datasets: [
+        {
+          label: "Projected Savings",
+          data: points,
+          borderColor: "rgba(34, 211, 238, 1)",
+          backgroundColor: "rgba(34, 211, 238, 0.2)",
+          fill: true,
+          tension: 0.35
+        }
+      ]
+    }
+  }
+
+  if (type === "bar") {
+    return {
+      labels: ["Income", "Expenses", "Net"],
+      datasets: [
+        {
+          data: [userData.monthlyIncome, userData.monthlyExpenses, monthlyNet],
+          backgroundColor: [
+            "rgba(34, 211, 238, 0.85)",
+            "rgba(244, 63, 94, 0.85)",
+            "rgba(16, 185, 129, 0.85)"
+          ]
+        }
+      ]
+    }
+  }
+
+  const expensesShare = userData.monthlyIncome > 0 ? (userData.monthlyExpenses / userData.monthlyIncome) * 100 : 0
+  const savingsShare = Math.max(100 - expensesShare, 0)
+  const essential = Math.min(Math.round(expensesShare * 0.7), 100)
+  const nonEssential = Math.min(Math.round(expensesShare * 0.3), 100)
+
+  return {
+    labels: ["Essential", "Non-Essential", "Savings"],
+    datasets: [
+      {
+        data: [essential, nonEssential, Math.round(savingsShare)],
+        backgroundColor: [
+          "rgba(56, 189, 248, 0.85)",
+          "rgba(251, 113, 133, 0.85)",
+          "rgba(52, 211, 153, 0.85)"
+        ]
+      }
+    ]
+  }
 }
 
 export function AIAdvisor({ userData }: AIAdvisorProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
-      role: 'assistant',
-      content: "Hi! I'm your AI Financial Advisor. Ask me anything about your finances, loans, or budgeting.",
+      role: "assistant",
+      content:
+        "Ask me about budgeting, debt payoff, savings planning, or income ideas. I will use your backend financial data.",
       timestamp: new Date(),
+      modelUsed: "system",
       visualData: {
         type: null,
         data: null
       }
     }
   ])
-  const [inputMessage, setInputMessage] = useState('')
+  const [inputMessage, setInputMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(messages[0] ?? null)
 
-  // Add useEffect to scroll to bottom when messages change
   useEffect(() => {
-    const scrollToBottom = () => {
-      const chatContainer = document.getElementById('chat-messages');
-      const messagesContainer = document.getElementById('messages-container');
-      if (chatContainer && messagesContainer) {
-        chatContainer.scrollTop = messagesContainer.scrollHeight;
-      }
-    };
+    const chatContainer = document.getElementById("chat-messages")
+    const messagesContainer = document.getElementById("messages-container")
+    if (!chatContainer || !messagesContainer) return
 
-    scrollToBottom();
-    // Add a slight delay to handle any dynamic content
-    const timeoutId = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timeoutId);
-  }, [messages]);
+    chatContainer.scrollTop = messagesContainer.scrollHeight
+    const timeout = setTimeout(() => {
+      chatContainer.scrollTop = messagesContainer.scrollHeight
+    }, 100)
+    return () => clearTimeout(timeout)
+  }, [messages])
 
-  // Function to detect if query might need visualization
-  const detectVisualizationType = (query: string): 'line' | 'bar' | 'doughnut' | null => {
-    const keywords = {
-      line: ['trend', 'over time', 'timeline', 'progress', 'forecast', 'prediction'],
-      bar: ['compare', 'comparison', 'difference', 'versus', 'breakdown'],
-      doughnut: ['distribution', 'allocation', 'split', 'ratio', 'percentage']
-    }
+  async function sendMessage() {
+    const trimmed = inputMessage.trim()
+    if (!trimmed || isLoading) return
 
-    for (const [type, words] of Object.entries(keywords)) {
-      if (words.some(word => query.toLowerCase().includes(word))) {
-        return type as 'line' | 'bar' | 'doughnut'
-      }
-    }
-    return null
-  }
+    const visualType = detectVisualizationType(trimmed)
+    const visualData =
+      visualType === null ? null : generateVisualizationData(visualType, userData)
 
-  // Generate sample visualization data based on query type
-  const generateVisualizationData = (type: 'line' | 'bar' | 'doughnut', query: string) => {
-    switch (type) {
-      case 'line':
-        return {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-          datasets: [{
-            label: 'Projected Savings',
-            data: Array(6).fill(0).map(() => Math.random() * userData.monthlyIncome),
-            borderColor: 'rgba(6, 182, 212, 1)',
-            backgroundColor: 'rgba(6, 182, 212, 0.1)',
-            fill: true
-          }]
-        }
-      case 'bar':
-        return {
-          labels: ['Income', 'Expenses', 'Savings'],
-          datasets: [{
-            data: [
-              userData.monthlyIncome,
-              userData.monthlyExpenses,
-              userData.monthlyIncome - userData.monthlyExpenses
-            ],
-            backgroundColor: [
-              'rgba(6, 182, 212, 0.8)',
-              'rgba(239, 68, 68, 0.8)',
-              'rgba(34, 197, 94, 0.8)'
-            ]
-          }]
-        }
-      case 'doughnut':
-        return {
-          labels: ['Essential', 'Non-Essential', 'Savings'],
-          datasets: [{
-            data: [60, 25, 15],
-            backgroundColor: [
-              'rgba(6, 182, 212, 0.8)',
-              'rgba(239, 68, 68, 0.8)',
-              'rgba(34, 197, 94, 0.8)'
-            ]
-          }]
-        }
-      default:
-        return null
-    }
-  }
-
-  const sendMessage = async () => {
-    if (!inputMessage.trim()) return
-
-    const visualType = detectVisualizationType(inputMessage)
     const userMessage: Message = {
-      role: 'user',
-      content: inputMessage,
+      role: "user",
+      content: trimmed,
       timestamp: new Date(),
       visualData: {
         type: visualType,
-        data: visualType ? generateVisualizationData(visualType, inputMessage) : null
+        data: visualData
       }
     }
 
-    setMessages(prev => [...prev, userMessage])
-    setInputMessage('')
-    setIsLoading(true)
+    setMessages((previous) => [...previous, userMessage])
     setSelectedMessage(userMessage)
+    setInputMessage("")
+    setIsLoading(true)
 
-    // Use Google Gemini API
-    const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    
-    // Validate API key exists
-    if (!geminiApiKey || geminiApiKey.trim().length === 0) {
-      const errorMessage = `Gemini API key is not configured.
-
-To set up the Gemini API key:
-1. Go to https://ai.google.dev/ (Google AI Studio)
-2. Sign in with your Google account
-3. Click "Get API Key" to create a new API key
-4. Copy your API key
-5. Create a .env.local file in the project root
-6. Add: NEXT_PUBLIC_GEMINI_API_KEY=your_api_key_here
-7. Restart your development server
-
-For more information, visit: https://ai.google.dev/tutorials/setup`;
-      
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: errorMessage,
-        timestamp: new Date(),
-        visualData: { type: null, data: null }
-      }]);
-      setIsLoading(false);
-      return;
-    }
-    
-    // Validate and clean API key
-    const cleanedApiKey = geminiApiKey.trim();
-    
     try {
-      // Debug: Log API key status (masked for security)
-      if (cleanedApiKey.length > 12) {
-        const keyPrefix = cleanedApiKey.substring(0, 8);
-        const keySuffix = cleanedApiKey.substring(cleanedApiKey.length - 4);
-        console.log(`Using Gemini API key: ${keyPrefix}...${keySuffix} (length: ${cleanedApiKey.length})`);
+      const agent = await getAgentAdvice(trimmed)
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: agent.response,
+        timestamp: new Date(),
+        modelUsed: agent.model_used,
+        visualData: userMessage.visualData
       }
-      
-      // Validate API key format (Gemini keys start with 'AIza' and are typically 39 characters)
-      if (cleanedApiKey.length < 20 || !cleanedApiKey.startsWith('AIza')) {
-        throw new Error('Invalid API key format. Gemini API keys should start with "AIza" and be at least 20 characters long.');
-      }
-      
-      const requestBody = {
-        contents: [{
-          parts: [{
-            text: `You are an expert AI financial advisor specializing in student finances. Provide specific, actionable advice about financial aid, scholarships, grants, budgeting, and cost-saving strategies for students.
 
-As an AI financial advisor for students, analyze this situation:
-- Monthly Income: $${userData.monthlyIncome}
-- Monthly Expenses: $${userData.monthlyExpenses}
-- Country: ${userData.country}
-
-User Question: ${inputMessage}
-
-Provide specific, actionable advice in plain text. Focus on student-specific financial aid, scholarships, grants, and cost-saving strategies.`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192, // Increased for Gemini 2.5 Pro (supports up to 65,536)
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
-      };
-
-      // Try different Gemini model names (newer models first)
-      const modelsToTry = [
-        'gemini-2.5-pro',      // Latest and most capable - Gemini 2.5 Pro
-        'gemini-1.5-pro',      // Fallback to 1.5 Pro
-        'gemini-1.5-flash',    // Faster, good for most tasks
-        'gemini-pro'           // Fallback to older model
-      ];
-      
-      let lastError: Error | null = null;
-      
-      for (const model of modelsToTry) {
-        try {
-          console.log(`Trying Gemini API with model: ${model}`);
-          
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${cleanedApiKey}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody)
-          })
-
-          if (response.ok) {
-            const data = await response.json() as GeminiResponse
-            
-            // Check if content was blocked by safety filters
-            if (data.candidates?.[0]?.finishReason === 'SAFETY') {
-              throw new Error('Response was blocked by safety filters. Please try rephrasing your question.');
-            }
-            
-            // Extract the text response from Gemini's response format
-            const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || data.error?.message || 'Sorry, I could not generate a response.'
-            
-            const aiMessage: Message = {
-              role: 'assistant',
-              content: aiResponse,
-              timestamp: new Date(),
-              visualData: userMessage.visualData
-            }
-
-            setMessages(prev => [...prev, aiMessage])
-            setSelectedMessage(aiMessage)
-            setIsLoading(false)
-            return; // Success, exit the function
-          } else {
-            const errorText = await response.text();
-            let errorData;
-            try {
-              errorData = JSON.parse(errorText);
-            } catch {
-              errorData = { error: { message: errorText || `HTTP ${response.status}` } };
-            }
-            console.warn(`Model ${model} failed:`, errorData);
-            lastError = new Error(errorData.error?.message || errorData.message || `API error: ${response.status}`);
-            
-            // If it's a 404 (model not found), try next model
-            if (response.status === 404) {
-              continue;
-            }
-            
-            // For other errors, throw immediately
-            throw lastError;
-          }
-        } catch (error) {
-          console.warn(`Error with model ${model}:`, error);
-          lastError = error instanceof Error ? error : new Error(String(error));
-          
-          // If it's a 404 or model not found error, try next model
-          if (error instanceof Error && (error.message.includes('404') || error.message.includes('not found'))) {
-            continue;
-          }
-          
-          // For other errors, throw immediately
-          throw error;
+      setMessages((previous) => [...previous, assistantMessage])
+      setSelectedMessage(assistantMessage)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to generate advice right now."
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: message,
+        timestamp: new Date(),
+        modelUsed: "error",
+        visualData: {
+          type: null,
+          data: null
         }
       }
-      
-      // If we get here, all models failed
-      throw lastError || new Error('All Gemini model attempts failed')
-    } catch (error) {
-      console.error('Error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
-      // Provide more helpful error messages
-      let userFriendlyMessage = 'I apologize, but I encountered an error. Please try again.';
-      
-      if (errorMessage.includes('Invalid API Key') || errorMessage.includes('invalid_api_key') || errorMessage.includes('API_KEY_INVALID')) {
-        userFriendlyMessage = `API authentication failed. The Gemini API key appears to be invalid or expired.
 
-To fix this:
-1. Go to https://ai.google.dev/ (Google AI Studio)
-2. Sign in with your Google account
-3. Click "Get API Key" to create or verify your API key
-4. Update the API key in your .env.local file as NEXT_PUBLIC_GEMINI_API_KEY=your_key_here
-5. Restart your development server
-
-For more information, visit: https://ai.google.dev/tutorials/setup`;
-      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
-        userFriendlyMessage = `Authentication error. Please verify your Gemini API key is correct and active.
-
-1. Go to https://ai.google.dev/ (Google AI Studio)
-2. Verify your API key is active
-3. Check that the key in .env.local matches your Google AI Studio key
-4. Restart your development server`;
-      } else {
-        userFriendlyMessage = `Error: ${errorMessage}. Please check the console for more details.`;
-      }
-      
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: userFriendlyMessage,
-        timestamp: new Date(),
-        visualData: { type: null, data: null }
-      }])
+      setMessages((previous) => [...previous, assistantMessage])
+      setSelectedMessage(assistantMessage)
     } finally {
       setIsLoading(false)
     }
@@ -364,42 +198,40 @@ For more information, visit: https://ai.google.dev/tutorials/setup`;
   return (
     <div className="flex w-full gap-6 max-h-[80vh] min-h-[600px]">
       <HolographicCard className="w-1/2 flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center gap-2 p-4 border-b border-gray-800 bg-black/30">
-          <Bot className="w-6 h-6 text-cyan-500" />
-          <h3 className="text-xl font-bold">AI Financial Advisor</h3>
+        <div className="flex items-center justify-between gap-2 p-4 border-b border-gray-800 bg-black/30">
+          <div className="flex items-center gap-2">
+            <Bot className="w-6 h-6 text-cyan-500" />
+            <h3 className="text-xl font-bold">AI Financial Advisor</h3>
+          </div>
+          <p className="text-xs text-slate-400">Backend Agent</p>
         </div>
 
-        {/* Messages Container */}
-        <div 
+        <div
           id="chat-messages"
           className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
         >
-          <div 
-            id="messages-container"
-            className="space-y-4 p-4"
-          >
+          <div id="messages-container" className="space-y-4 p-4">
             {messages.map((message, index) => (
               <div
-                key={index}
-                className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}
+                key={`${message.role}-${index}`}
+                className={`flex ${message.role === "assistant" ? "justify-start" : "justify-end"}`}
                 onClick={() => setSelectedMessage(message)}
               >
                 <div
                   className={`max-w-[80%] rounded-lg p-4 cursor-pointer transition-all duration-300 hover:scale-[1.02] ${
-                    message.role === 'assistant'
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-cyan-500 text-white'
-                  } ${selectedMessage === message ? 'ring-2 ring-cyan-500' : ''}`}
+                    message.role === "assistant" ? "bg-gray-800 text-white" : "bg-cyan-500 text-white"
+                  } ${selectedMessage === message ? "ring-2 ring-cyan-500" : ""}`}
                 >
                   <p className="whitespace-pre-wrap font-sans">{message.content}</p>
                   <div className="text-xs text-gray-400 mt-2">
                     {message.timestamp.toLocaleTimeString()}
+                    {message.modelUsed ? ` | ${message.modelUsed}` : ""}
                   </div>
                 </div>
               </div>
             ))}
-            {isLoading && (
+
+            {isLoading ? (
               <div className="flex justify-start">
                 <div className="bg-gray-800 text-white rounded-lg p-4">
                   <div className="flex gap-2">
@@ -409,22 +241,26 @@ For more information, visit: https://ai.google.dev/tutorials/setup`;
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
-        {/* Input Area */}
         <div className="p-4 border-t border-gray-800 bg-black/30">
           <div className="flex gap-2">
             <Input
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              onChange={(event) => setInputMessage(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault()
+                  void sendMessage()
+                }
+              }}
               placeholder="Ask about your finances..."
               className="flex-grow bg-gray-900 border-gray-700"
             />
             <button
-              onClick={sendMessage}
+              onClick={() => void sendMessage()}
               disabled={isLoading || !inputMessage.trim()}
               className="p-2 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -434,7 +270,6 @@ For more information, visit: https://ai.google.dev/tutorials/setup`;
         </div>
       </HolographicCard>
 
-      {/* Visualization Panel - Right Half */}
       <HolographicCard className="w-1/2 flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-6 h-6 text-cyan-500" />
@@ -442,65 +277,71 @@ For more information, visit: https://ai.google.dev/tutorials/setup`;
         </div>
 
         <div className="flex-grow flex items-center justify-center p-4">
-          {selectedMessage?.visualData?.type ? (
+          {selectedMessage?.visualData.type === "line" ? (
             <div className="w-full h-full">
-              {selectedMessage.visualData.type === 'line' && (
-                <Line
-                  data={selectedMessage.visualData.data}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                        ticks: { color: 'white' }
-                      },
-                      x: {
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                        ticks: { color: 'white' }
-                      }
+              <Line
+                data={selectedMessage.visualData.data as never}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      grid: { color: "rgba(255, 255, 255, 0.1)" },
+                      ticks: { color: "white" }
+                    },
+                    x: {
+                      grid: { color: "rgba(255, 255, 255, 0.1)" },
+                      ticks: { color: "white" }
                     }
-                  }}
-                />
-              )}
-              {selectedMessage.visualData.type === 'bar' && (
-                <Bar
-                  data={selectedMessage.visualData.data}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                        ticks: { color: 'white' }
-                      },
-                      x: {
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                        ticks: { color: 'white' }
-                      }
-                    }
-                  }}
-                />
-              )}
-              {selectedMessage.visualData.type === 'doughnut' && (
-                <Doughnut
-                  data={selectedMessage.visualData.data}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        position: 'bottom',
-                        labels: { color: 'white' }
-                      }
-                    }
-                  }}
-                />
-              )}
+                  }
+                }}
+              />
             </div>
-          ) : (
+          ) : null}
+
+          {selectedMessage?.visualData.type === "bar" ? (
+            <div className="w-full h-full">
+              <Bar
+                data={selectedMessage.visualData.data as never}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      grid: { color: "rgba(255, 255, 255, 0.1)" },
+                      ticks: { color: "white" }
+                    },
+                    x: {
+                      grid: { color: "rgba(255, 255, 255, 0.1)" },
+                      ticks: { color: "white" }
+                    }
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+
+          {selectedMessage?.visualData.type === "doughnut" ? (
+            <div className="w-full h-full">
+              <Doughnut
+                data={selectedMessage.visualData.data as never}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "bottom",
+                      labels: { color: "white" }
+                    }
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+
+          {!selectedMessage?.visualData.type ? (
             <div className="text-center text-gray-400">
               <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-cyan-500/50" />
               <p>No visualization available for this query.</p>
@@ -509,12 +350,12 @@ For more information, visit: https://ai.google.dev/tutorials/setup`;
                 <p className="text-sm text-cyan-500">Example queries:</p>
                 <p className="text-sm">"Show me the trend of my savings over time"</p>
                 <p className="text-sm">"Compare my income and expenses"</p>
-                <p className="text-sm">"What's the distribution of my monthly spending?"</p>
+                <p className="text-sm">"What is the distribution of my monthly spending?"</p>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </HolographicCard>
     </div>
   )
-} 
+}
