@@ -38,8 +38,8 @@ Use this checklist as the live implementation tracker.
 - [x] Phase 2 - Authentication and User System
 - [x] Phase 3 - Financial Data Layer
 - [x] Phase 4 - Financial Analytics Engine
-- [ ] Phase 5 - Dashboard APIs
-- [ ] Phase 6 - LangGraph Financial Agent
+- [x] Phase 5 - Dashboard APIs
+- [x] Phase 6 - LangGraph Financial Agent
 - [ ] Phase 7 - Tool System
 - [ ] Phase 8 - RAG Integration
 - [ ] Phase 9 - Web Retrieval
@@ -52,9 +52,19 @@ Use this checklist as the live implementation tracker.
 - Financial CRUD routes (`POST/GET /expenses`, `POST/GET /loans`) with user-scoped queries.
 - Profile/onboarding routes (`GET/PUT /profile`, aliases under `/user/profile`).
 - Financial analytics route (`GET /financial-summary`) with deterministic score calculation.
+- Dashboard API routes:
+  - `GET /dashboard/expense-summary`
+  - `GET /dashboard/financial-score`
+  - `GET /dashboard/charts`
+  - `GET /dashboard/timeline`
 - Frontend dashboard wired to real backend data (no profile mock state).
 - Onboarding page added and linked from signup flow.
 - Login/signup page redesigned and app logout added.
+- Phase 6 financial agent pipeline shipped:
+  - `POST /agent/advice` (+ `/api/agent/advice`) with authenticated user context.
+  - Backend-only Gemini integration with model fallback and deterministic rule fallback.
+  - Agent metadata logging to `ai_logs` (`query`, `response`, `model_used`).
+  - Dashboard AI Advisor frontend now calls backend agent endpoint (no browser Gemini key usage).
 - Worker deployed: `https://burryai-worker.mdmurtuzaali777.workers.dev`
 - D1 migrations applied locally and remotely up through `0002_user_profiles.sql`.
 
