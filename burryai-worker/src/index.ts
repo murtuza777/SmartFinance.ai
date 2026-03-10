@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { cors } from "hono/cors"
 import agentRoutes from "./routes/agent"
 import authRoutes from "./routes/auth"
 import dashboardRoutes from "./routes/dashboard"
@@ -9,6 +10,29 @@ import profileRoutes from "./routes/profile"
 import type { AppEnv } from "./types"
 
 const app = new Hono<AppEnv>()
+const allowedOrigins = new Set([
+  "https://burryai-web.mdmurtuzaali777.workers.dev",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+])
+
+app.use(
+  "*",
+  cors({
+    origin: (origin) => {
+      if (!origin) {
+        return "https://burryai-web.mdmurtuzaali777.workers.dev"
+      }
+      return allowedOrigins.has(origin)
+        ? origin
+        : "https://burryai-web.mdmurtuzaali777.workers.dev"
+    },
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    maxAge: 86400
+  })
+)
 
 app.get("/health", (c) => {
   return c.json({
