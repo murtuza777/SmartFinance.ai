@@ -14,6 +14,10 @@ export async function runFinancialAgent(params: {
   geminiApiKey?: string
   geminiModel?: string
   knowledgeIndex?: Vectorize
+  aiBinding?: {
+    run: (model: string, input: unknown) => Promise<unknown>
+  }
+  embeddingModel?: string
   webSearchProvider?: string
   tavilyApiKey?: string
   serperApiKey?: string
@@ -30,6 +34,8 @@ export async function runFinancialAgent(params: {
   const knowledgeChunks = await retrieveKnowledgeContext({
     query: params.userMessage,
     index: params.knowledgeIndex,
+    ai: params.aiBinding,
+    embeddingModel: params.embeddingModel,
     topK: 3
   })
   const webResults = await searchWebForIncomeIdeas({

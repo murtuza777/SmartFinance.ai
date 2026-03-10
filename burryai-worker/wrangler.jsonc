@@ -27,8 +27,12 @@
 			"index_name": "financial-data"
 		}
 	],
+	"ai": {
+		"binding": "AI"
+	},
 	"vars": {
 		"ENABLE_VECTORIZE_RAG": "false",
+		"EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
 		"WEB_SEARCH_PROVIDER": "tavily"
 	}
 	/**

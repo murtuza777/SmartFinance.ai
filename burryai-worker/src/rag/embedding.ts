@@ -1,5 +1,13 @@
 const DEFAULT_EMBEDDING_DIMENSION = 128
 
+type EmbeddingModelResponse = {
+  data?: number[][]
+}
+
+type WorkersAIBinding = {
+  run: (model: string, input: unknown) => Promise<unknown>
+}
+
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
@@ -39,6 +47,38 @@ export function createDeterministicEmbedding(
   }
 
   return vector.map((value) => Number((value / norm).toFixed(8)))
+}
+
+function parseWorkersAIEmbedding(payload: unknown): number[] | null {
+  if (!payload || typeof payload !== "object") return null
+  const first = (payload as EmbeddingModelResponse).data?.[0]
+  if (!Array.isArray(first) || first.length === 0) return null
+  return first.filter((value): value is number => typeof value === "number")
+}
+
+export async function createEmbedding(
+  text: string,
+  options?: {
+    ai?: WorkersAIBinding
+    model?: string
+    fallbackDimension?: number
+  }
+): Promise<number[]> {
+  if (options?.ai) {
+    try {
+      const payload = await options.ai.run(options.model ?? "@cf/baai/bge-base-en-v1.5", {
+        text: [text]
+      })
+      const embedding = parseWorkersAIEmbedding(payload)
+      if (embedding && embedding.length > 0) {
+        return embedding
+      }
+    } catch {
+      // Fall back to deterministic embedding.
+    }
+  }
+
+  return createDeterministicEmbedding(text, options?.fallbackDimension ?? DEFAULT_EMBEDDING_DIMENSION)
 }
 
 export function splitIntoChunks(text: string, maxWordsPerChunk: number = 70): string[] {

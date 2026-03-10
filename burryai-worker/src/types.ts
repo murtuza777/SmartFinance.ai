@@ -1,6 +1,10 @@
 export type Bindings = {
+  AI?: {
+    run: (model: string, input: unknown) => Promise<unknown>
+  }
   DB: D1Database
   ENABLE_VECTORIZE_RAG?: string
+  EMBEDDING_MODEL?: string
   FINANCE_KB_INDEX?: Vectorize
   JWT_SECRET: string
   GEMINI_API_KEY?: string

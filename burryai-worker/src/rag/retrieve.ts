@@ -1,10 +1,14 @@
 import type { AgentKnowledgeChunk } from "../agent/state"
-import { createDeterministicEmbedding } from "./embedding"
+import { createDeterministicEmbedding, createEmbedding } from "./embedding"
 import { getKnowledgeChunks, seedKnowledgeIndexIfAvailable } from "./ingest"
 
 type RetrieveParams = {
   query: string
   index?: Vectorize
+  ai?: {
+    run: (model: string, input: unknown) => Promise<unknown>
+  }
+  embeddingModel?: string
   topK?: number
 }
 
@@ -46,10 +50,28 @@ function parseMetadataValue(value: unknown): string {
   return typeof value === "string" ? value : ""
 }
 
-async function vectorizeRetrieve(query: string, index: Vectorize, topK: number): Promise<AgentKnowledgeChunk[]> {
-  await seedKnowledgeIndexIfAvailable(index)
+async function vectorizeRetrieve(
+  query: string,
+  index: Vectorize,
+  topK: number,
+  options?: {
+    ai?: {
+      run: (model: string, input: unknown) => Promise<unknown>
+    }
+    embeddingModel?: string
+  }
+): Promise<AgentKnowledgeChunk[]> {
+  await seedKnowledgeIndexIfAvailable({
+    index,
+    ai: options?.ai,
+    embeddingModel: options?.embeddingModel
+  })
 
-  const queryVector = createDeterministicEmbedding(query)
+  const queryVector = await createEmbedding(query, {
+    ai: options?.ai,
+    model: options?.embeddingModel,
+    fallbackDimension: createDeterministicEmbedding(query).length
+  })
   const matches = await index.query(queryVector, { topK, returnMetadata: "all" })
 
   return (matches.matches ?? [])
@@ -79,7 +101,10 @@ export async function retrieveKnowledgeContext(params: RetrieveParams): Promise<
 
   if (params.index) {
     try {
-      const chunks = await vectorizeRetrieve(params.query, params.index, topK)
+      const chunks = await vectorizeRetrieve(params.query, params.index, topK, {
+        ai: params.ai,
+        embeddingModel: params.embeddingModel
+      })
       if (chunks.length > 0) {
         return chunks
       }

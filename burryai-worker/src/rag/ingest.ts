@@ -1,4 +1,4 @@
-import { createDeterministicEmbedding, splitIntoChunks } from "./embedding"
+import { createEmbedding, splitIntoChunks } from "./embedding"
 import { KNOWLEDGE_DOCUMENTS } from "./knowledge-base"
 
 type KnowledgeChunk = {
@@ -22,7 +22,14 @@ export function getKnowledgeChunks(): KnowledgeChunk[] {
   })
 }
 
-export async function seedKnowledgeIndexIfAvailable(index?: Vectorize): Promise<void> {
+export async function seedKnowledgeIndexIfAvailable(params: {
+  index?: Vectorize
+  ai?: {
+    run: (model: string, input: unknown) => Promise<unknown>
+  }
+  embeddingModel?: string
+}): Promise<void> {
+  const index = params.index
   if (!index || hasAttemptedVectorUpsert) {
     return
   }
@@ -30,15 +37,20 @@ export async function seedKnowledgeIndexIfAvailable(index?: Vectorize): Promise<
   hasAttemptedVectorUpsert = true
 
   const chunks = getKnowledgeChunks()
-  const vectors = chunks.map((chunk) => ({
-    id: chunk.id,
-    values: createDeterministicEmbedding(chunk.content),
-    metadata: {
-      title: chunk.title,
-      source: chunk.source,
-      content: chunk.content
-    }
-  }))
+  const vectors = await Promise.all(
+    chunks.map(async (chunk) => ({
+      id: chunk.id,
+      values: await createEmbedding(chunk.content, {
+        ai: params.ai,
+        model: params.embeddingModel
+      }),
+      metadata: {
+        title: chunk.title,
+        source: chunk.source,
+        content: chunk.content
+      }
+    }))
+  )
 
   try {
     await index.upsert(vectors)

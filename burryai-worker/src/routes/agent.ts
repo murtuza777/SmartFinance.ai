@@ -55,6 +55,8 @@ agentRoutes.post("/advice", async (c) => {
       geminiApiKey: c.env.GEMINI_API_KEY,
       geminiModel: c.env.GEMINI_MODEL,
       knowledgeIndex: useVectorize ? c.env.FINANCE_KB_INDEX : undefined,
+      aiBinding: c.env.AI,
+      embeddingModel: c.env.EMBEDDING_MODEL,
       webSearchProvider: c.env.WEB_SEARCH_PROVIDER,
       tavilyApiKey: c.env.TAVILY_API_KEY,
       serperApiKey: c.env.SERPER_API_KEY

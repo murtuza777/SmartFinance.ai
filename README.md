@@ -306,6 +306,41 @@ AI
 
 ---
 
+# CI/CD Auto Deployment
+
+Pushes to `main` now trigger GitHub Actions deployment via `.github/workflows/deploy-cloudflare.yml`.
+
+Required GitHub repository secrets:
+
+* `CLOUDFLARE_API_TOKEN`
+* `CLOUDFLARE_ACCOUNT_ID`
+* `JWT_SECRET`
+* `GEMINI_API_KEY` (optional but recommended)
+* `TAVILY_API_KEY` or `SERPER_API_KEY` (for phase 9 web retrieval)
+
+Recommended repository variables:
+
+* `WORKER_API_BASE_URL`
+* `NEXT_PUBLIC_WORKER_API_BASE_URL`
+* `NEXT_PUBLIC_API_BASE_URL`
+
+---
+
+# Production RAG Setup (Workers AI + Vectorize)
+
+This project supports production embeddings through Workers AI with deterministic fallback when unavailable.
+
+1. Create Vectorize index (dimension must match embedding model output):
+   * `npx wrangler vectorize create financial-data --dimensions=768 --metric=cosine`
+2. Confirm index details:
+   * `npx wrangler vectorize info financial-data`
+3. Set worker vars:
+   * `ENABLE_VECTORIZE_RAG=true`
+   * `EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5`
+4. Deploy worker so knowledge chunks are embedded and upserted on retrieval path.
+
+---
+
 # Future Enhancements
 
 * automated financial insights
