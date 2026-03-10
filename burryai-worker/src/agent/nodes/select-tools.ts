@@ -3,14 +3,14 @@ import type { AgentIntent, AgentToolName } from "../state"
 export function selectToolsByIntent(intent: AgentIntent): AgentToolName[] {
   switch (intent) {
     case "budgeting":
-      return ["financial_summary", "expense_insights", "savings_planner"]
+      return ["getFinancialProfile", "getExpenses", "costCutter", "financialHealth"]
     case "debt":
-      return ["financial_summary", "loan_insights", "savings_planner"]
+      return ["getFinancialProfile", "loanOptimizer", "financialHealth"]
     case "savings":
-      return ["financial_summary", "savings_planner", "expense_insights"]
+      return ["getFinancialProfile", "costCutter", "financialHealth"]
     case "income":
-      return ["financial_summary", "savings_planner"]
+      return ["getFinancialProfile", "financialHealth", "costCutter"]
     default:
-      return ["financial_summary", "expense_insights", "loan_insights"]
+      return ["getFinancialProfile", "getExpenses", "loanOptimizer", "financialHealth"]
   }
 }

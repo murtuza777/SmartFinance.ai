@@ -1,10 +1,11 @@
 export type AgentIntent = "budgeting" | "debt" | "savings" | "income" | "general"
 
 export type AgentToolName =
-  | "financial_summary"
-  | "expense_insights"
-  | "loan_insights"
-  | "savings_planner"
+  | "getFinancialProfile"
+  | "getExpenses"
+  | "costCutter"
+  | "financialHealth"
+  | "loanOptimizer"
 
 export type AgentContextData = {
   monthlyIncome: number
@@ -23,7 +24,23 @@ export type AgentContextData = {
 
 export type AgentToolOutput = {
   name: AgentToolName
+  summary: string
+  output: unknown
+}
+
+export type AgentKnowledgeChunk = {
+  id: string
+  title: string
+  source: string
   content: string
+  score: number
+}
+
+export type AgentWebResult = {
+  title: string
+  url: string
+  snippet: string
+  source: "tavily" | "serper" | "none"
 }
 
 export type AgentState = {
@@ -33,6 +50,8 @@ export type AgentState = {
   context: AgentContextData
   selectedTools: AgentToolName[]
   toolOutputs: AgentToolOutput[]
+  knowledgeChunks: AgentKnowledgeChunk[]
+  webResults: AgentWebResult[]
   response: string
   modelUsed: string
 }
