@@ -7,12 +7,17 @@
     "dev": "next dev",
     "dev:web": "next dev -p 3000",
     "dev:worker:local": "npm run dev --prefix burryai-worker -- --port 8787 --ip 127.0.0.1",
-    "dev:all": "concurrently -k -n worker,web -c cyan,green \"npm run dev:worker:local\" \"cross-env WORKER_API_BASE_URL=http://127.0.0.1:8787 npm run dev:web\"",
+    "dev:all": "concurrently -k -n worker,web -c cyan,green \"npm run dev:worker:local\" \"cross-env WORKER_API_BASE_URL=http://127.0.0.1:8787 NEXT_PUBLIC_WORKER_API_BASE_URL=http://127.0.0.1:8787 npm run dev:web\"",
     "build": "next build",
+    "build:cloudflare:web": "cross-env WORKER_API_BASE_URL=https://burryai-worker.mdmurtuzaali777.workers.dev NEXT_PUBLIC_WORKER_API_BASE_URL=https://burryai-worker.mdmurtuzaali777.workers.dev NEXT_PUBLIC_API_BASE_URL=https://burryai-worker.mdmurtuzaali777.workers.dev opennextjs-cloudflare build -c wrangler.frontend.jsonc --skipWranglerConfigCheck",
+    "deploy:cloudflare:web": "npm run build:cloudflare:web && opennextjs-cloudflare deploy -c wrangler.frontend.jsonc",
     "start": "next start",
     "lint": "next lint",
     "build:worker": "webpack --config webpack.config.js",
-    "deploy:worker": "wrangler deploy",
+    "deploy:worker": "npm run deploy --prefix burryai-worker",
+    "d1:migrate:local": "wrangler d1 migrations apply burryai-db --config burryai-worker/wrangler.jsonc --local",
+    "d1:migrate:remote": "wrangler d1 migrations apply burryai-db --config burryai-worker/wrangler.jsonc --remote",
+    "deploy:cloudflare:all": "npm run d1:migrate:remote && npm run deploy:worker && npm run deploy:cloudflare:web",
     "dev:worker": "wrangler dev --experimental-vectorize-bind-to-prod"
   },
   "dependencies": {
@@ -43,6 +48,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241112.0",
+    "@opennextjs/cloudflare": "^1.13.1",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
