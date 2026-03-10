@@ -6,22 +6,37 @@ import { format, addMonths } from 'date-fns'
 
 interface TimelineProps {
   userData: {
-    loanAmount: number;
-    monthlyIncome: number;
-    monthlyExpenses: number;
+    loanAmount: number
+    monthlyIncome: number
+    monthlyExpenses: number
+    loans: Array<{
+      id: string
+      loan_name: string
+      remaining_balance: number
+      interest_rate: number
+      minimum_payment: number
+      due_date: string | null
+    }>
   }
 }
 
 export function FinancialTimeline({ userData }: TimelineProps) {
   const [timeframe, setTimeframe] = useState('1year')
-  const baseMonthlyPayment = 1500 // Example fixed payment
+  const baseMonthlyPayment = Math.max(
+    userData.loans.reduce((sum, loan) => sum + loan.minimum_payment, 0),
+    0
+  )
+  const averageInterestRate =
+    userData.loans.length === 0
+      ? 5.5
+      : userData.loans.reduce((sum, loan) => sum + loan.interest_rate, 0) / userData.loans.length
 
   const generateTimelineData = () => {
     const months = timeframe === '1year' ? 12 : timeframe === '3years' ? 36 : 60
     const data = []
     let balance = userData.loanAmount
     const monthlyPayment = baseMonthlyPayment
-    const interestRate = 0.055 / 12 // 5.5% annual rate
+    const interestRate = (averageInterestRate / 100) / 12
 
     for (let i = 0; i <= months; i++) {
       const interest = balance * interestRate
@@ -57,7 +72,7 @@ export function FinancialTimeline({ userData }: TimelineProps) {
   let totalInterestWithExtra = 0
 
   while (balanceWithExtra > 0 && monthsWithExtra < timelineData.length) {
-    const interest = balanceWithExtra * (0.055 / 12)
+    const interest = balanceWithExtra * ((averageInterestRate / 100) / 12)
     totalInterestWithExtra += interest
     balanceWithExtra = balanceWithExtra + interest - extraPayment
     monthsWithExtra++
@@ -72,6 +87,11 @@ export function FinancialTimeline({ userData }: TimelineProps) {
 
   return (
     <div className="space-y-6">
+      {userData.loans.length === 0 ? (
+        <HolographicCard>
+          <p className="text-sm text-slate-300">No loans found yet. Add loan entries to generate a timeline.</p>
+        </HolographicCard>
+      ) : null}
       {/* Timeline Controls */}
       <div className="grid grid-cols-3 gap-4">
         <HolographicButton

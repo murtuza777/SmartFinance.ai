@@ -1,72 +1,59 @@
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import { HolographicCard } from '@/components/dashboard/HolographicUI'
 import { Scissors, TrendingDown, PiggyBank, AlertTriangle, DollarSign, ShoppingBag, Coffee, Home, Car } from 'lucide-react'
 import { Doughnut, Bar } from 'react-chartjs-2'
 
 interface CostCutterProps {
   userData: {
-    monthlyExpenses: number;
-    monthlyIncome: number;
-    country: string;
+    monthlyExpenses: number
+    monthlyIncome: number
+    country: string
+    categories: Array<{ category: string; amount: number; percentage: number }>
   }
 }
 
 interface ExpenseCategory {
-  category: string;
-  amount: number;
-  potential: number;
-  icon: any;
-  tips: string[];
+  category: string
+  amount: number
+  potential: number
+  icon: any
+  tips: string[]
 }
 
 export function CostCutter({ userData }: CostCutterProps) {
-  // Calculate expense categories based on typical student spending patterns
-  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([
-    {
-      category: "Housing",
-      amount: userData.monthlyExpenses * 0.4,
-      potential: userData.monthlyExpenses * 0.35,
-      icon: Home,
-      tips: [
-        "Consider finding a roommate to split costs",
-        "Look for student housing options",
-        "Negotiate rent during off-peak seasons"
-      ]
-    },
-    {
-      category: "Food",
-      amount: userData.monthlyExpenses * 0.2,
-      potential: userData.monthlyExpenses * 0.15,
-      icon: Coffee,
-      tips: [
-        "Meal prep to reduce eating out",
-        "Use student meal plans",
-        "Shop at discount grocery stores"
-      ]
-    },
-    {
-      category: "Transportation",
-      amount: userData.monthlyExpenses * 0.15,
-      potential: userData.monthlyExpenses * 0.1,
-      icon: Car,
-      tips: [
-        "Use student transit passes",
-        "Consider biking or walking",
-        "Share rides with classmates"
-      ]
-    },
-    {
-      category: "Shopping",
-      amount: userData.monthlyExpenses * 0.15,
-      potential: userData.monthlyExpenses * 0.1,
-      icon: ShoppingBag,
-      tips: [
-        "Use student discounts",
-        "Buy used textbooks",
-        "Share subscriptions with friends"
-      ]
-    },
-  ])
+  const expenseCategories = useMemo<ExpenseCategory[]>(() => {
+    const iconMap: Record<string, any> = {
+      housing: Home,
+      rent: Home,
+      hostel: Home,
+      food: Coffee,
+      grocery: Coffee,
+      transportation: Car,
+      transport: Car,
+      shopping: ShoppingBag
+    }
+
+    if (userData.categories.length === 0) {
+      return []
+    }
+
+    return userData.categories.slice(0, 6).map((item) => {
+      const normalized = item.category.toLowerCase()
+      const icon = iconMap[normalized] ?? ShoppingBag
+      const potentialTarget = item.amount * 0.9
+      return {
+        category: item.category,
+        amount: item.amount,
+        potential: potentialTarget,
+        icon,
+        tips: [
+          "Set a strict weekly cap and track your actual spend daily.",
+          "Replace one high-cost habit with a lower-cost alternative.",
+          "Auto-transfer the saved amount to savings/debt right after payday."
+        ]
+      }
+    })
+  }, [userData.categories])
 
   const totalSavingsPotential = expenseCategories.reduce(
     (acc, cat) => acc + (cat.amount - cat.potential), 
@@ -96,7 +83,7 @@ export function CostCutter({ userData }: CostCutterProps) {
       label: 'Monthly Expenses',
       data: [
         userData.monthlyExpenses,
-        userData.monthlyExpenses - totalSavingsPotential
+        Math.max(userData.monthlyExpenses - totalSavingsPotential, 0)
       ],
       backgroundColor: ['rgba(6, 182, 212, 0.8)', 'rgba(34, 197, 94, 0.8)'],
       borderColor: ['rgba(6, 182, 212, 1)', 'rgba(34, 197, 94, 1)'],
@@ -227,7 +214,7 @@ export function CostCutter({ userData }: CostCutterProps) {
             </div>
             <div className="p-3 bg-black/30 rounded-lg">
               <p className="text-sm text-gray-400">Average Student Expenses</p>
-              <p className="text-xl font-bold text-cyan-500">${(userData.monthlyExpenses * 0.9).toFixed(0)}</p>
+                  <p className="text-xl font-bold text-cyan-500">${(userData.monthlyExpenses * 0.9).toFixed(0)}</p>
             </div>
             <div className="p-3 bg-black/30 rounded-lg">
               <p className="text-sm text-gray-400">Optimization Target</p>

@@ -24,6 +24,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  createExpense,
+  createLoan,
+  getDashboardExpenseSummary,
   getDashboardCharts,
   getDashboardFinancialScore,
   getDashboardTimeline,
@@ -98,6 +101,22 @@ export default function DashboardPage() {
       status: 'upcoming' | 'recorded'
     }>
   >([])
+  const [expenseSummary, setExpenseSummary] = useState<{
+    by_category: Array<{ category: string; amount: number; percentage: number }>
+  }>({
+    by_category: []
+  })
+  const [newExpense, setNewExpense] = useState({
+    amount: 0,
+    category: "",
+    description: ""
+  })
+  const [newLoan, setNewLoan] = useState({
+    loan_amount: 0,
+    interest_rate: 0,
+    monthly_payment: 0,
+    next_payment_date: ""
+  })
   const [profile, setProfile] = useState<FinancialProfile | null>(null)
   const [expenses, setExpenses] = useState<ExpenseItem[]>([])
   const [loans, setLoans] = useState<LoanItem[]>([])
@@ -117,14 +136,15 @@ export default function DashboardPage() {
     setError('')
     setLoading(true)
     try {
-      const [profileData, summaryData, expenseData, loanData, scoreData, chartsData, timelineData] = await Promise.all([
+      const [profileData, summaryData, expenseData, loanData, scoreData, chartsData, timelineData, expenseSummaryData] = await Promise.all([
         getFinancialProfile(),
         getFinancialSummary(),
         getExpenses(),
         getLoans(),
         getDashboardFinancialScore(),
         getDashboardCharts(),
-        getDashboardTimeline()
+        getDashboardTimeline(),
+        getDashboardExpenseSummary()
       ])
 
       if (!profileData.onboarding_completed) {
@@ -142,6 +162,9 @@ export default function DashboardPage() {
       })
       setDashboardCharts(chartsData.charts)
       setDashboardTimeline(timelineData.timeline)
+      setExpenseSummary({
+        by_category: expenseSummaryData.summary.by_category
+      })
       setProfileForm({
         full_name: profileData.full_name,
         country: profileData.country,
@@ -200,6 +223,44 @@ export default function DashboardPage() {
       setError(saveError instanceof Error ? saveError.message : 'Failed to save profile')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleCreateExpense = async () => {
+    if (!newExpense.category || newExpense.amount <= 0) return
+    setError("")
+    try {
+      await createExpense({
+        category: newExpense.category,
+        amount: Number(newExpense.amount),
+        description: newExpense.description || undefined
+      })
+      setNewExpense({ amount: 0, category: "", description: "" })
+      await loadData()
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Failed to add expense")
+    }
+  }
+
+  const handleCreateLoan = async () => {
+    if (newLoan.loan_amount <= 0 || newLoan.monthly_payment <= 0) return
+    setError("")
+    try {
+      await createLoan({
+        loan_amount: Number(newLoan.loan_amount),
+        interest_rate: Number(newLoan.interest_rate),
+        monthly_payment: Number(newLoan.monthly_payment),
+        next_payment_date: newLoan.next_payment_date || undefined
+      })
+      setNewLoan({
+        loan_amount: 0,
+        interest_rate: 0,
+        monthly_payment: 0,
+        next_payment_date: ""
+      })
+      await loadData()
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Failed to add loan")
     }
   }
 
@@ -293,7 +354,6 @@ export default function DashboardPage() {
   const tabs = [
     { id: 'overview' as const, label: 'Overview' },
     { id: 'ai' as const, label: 'AI Advisor' },
-    { id: 'cost' as const, label: 'Cost Cutter' },
     { id: 'timeline' as const, label: 'Timeline' },
     { id: 'profile' as const, label: 'Profile' }
   ]
@@ -339,16 +399,28 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        <div className="flex flex-wrap gap-3">
-          {tabs.map((tab) => (
-            <HolographicButton
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={activeTab === tab.id ? 'bg-cyan-400 text-slate-950 border-cyan-300' : ''}
-            >
-              {tab.label}
-            </HolographicButton>
-          ))}
+        <div className="pt-2">
+          <div className="mx-auto w-full max-w-2xl">
+            <div className="relative rounded-full bg-gradient-to-r from-cyan-500/35 via-sky-500/20 to-teal-500/35 p-[1px] shadow-[0_18px_60px_rgba(8,47,73,0.85)]">
+              <div className="rounded-full border border-cyan-500/30 bg-slate-950/80 backdrop-blur px-1.5 py-1.5">
+                <div className="flex items-center justify-between gap-1">
+                  {tabs.map((tab) => (
+                    <HolographicButton
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex-1 rounded-full text-xs sm:text-sm font-medium px-3 py-1.5 transition-all duration-300 ${
+                        activeTab === tab.id
+                          ? 'bg-cyan-400 text-slate-950 border-cyan-200 shadow-[0_14px_40px_rgba(34,211,238,0.55)] hover:bg-cyan-400 hover:text-slate-950'
+                          : 'border-transparent text-slate-300 hover:bg-cyan-500/10 hover:text-cyan-200'
+                      }`}
+                    >
+                      {tab.label}
+                    </HolographicButton>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {activeTab === 'overview' ? (
@@ -493,7 +565,8 @@ export default function DashboardPage() {
             userData={{
               monthlyExpenses: userData.monthlyExpenses,
               monthlyIncome: userData.monthlyIncome,
-              country: userData.country
+              country: userData.country,
+              categories: expenseSummary.by_category
             }}
           />
         ) : null}
@@ -504,7 +577,8 @@ export default function DashboardPage() {
               userData={{
                 loanAmount: userData.loanAmount,
                 monthlyIncome: userData.monthlyIncome,
-                monthlyExpenses: userData.monthlyExpenses
+                monthlyExpenses: userData.monthlyExpenses,
+                loans
               }}
             />
             <HolographicCard>
@@ -638,6 +712,97 @@ export default function DashboardPage() {
                   <option value="moderate">Moderate</option>
                   <option value="high">High</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-4 space-y-3">
+                <h4 className="text-lg font-semibold">Add Expense</h4>
+                <Input
+                  placeholder="Category"
+                  value={newExpense.category}
+                  onChange={(event) =>
+                    setNewExpense((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Amount"
+                  value={newExpense.amount}
+                  onChange={(event) =>
+                    setNewExpense((prev) => ({ ...prev, amount: Number(event.target.value || 0) }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+                <Input
+                  placeholder="Description (optional)"
+                  value={newExpense.description}
+                  onChange={(event) =>
+                    setNewExpense((prev) => ({ ...prev, description: event.target.value }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+                <Button
+                  type="button"
+                  onClick={handleCreateExpense}
+                  className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                >
+                  Add expense
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-4 space-y-3">
+                <h4 className="text-lg font-semibold">Add Loan</h4>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Loan amount"
+                  value={newLoan.loan_amount}
+                  onChange={(event) =>
+                    setNewLoan((prev) => ({ ...prev, loan_amount: Number(event.target.value || 0) }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Interest rate (%)"
+                  value={newLoan.interest_rate}
+                  onChange={(event) =>
+                    setNewLoan((prev) => ({ ...prev, interest_rate: Number(event.target.value || 0) }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Monthly payment"
+                  value={newLoan.monthly_payment}
+                  onChange={(event) =>
+                    setNewLoan((prev) => ({
+                      ...prev,
+                      monthly_payment: Number(event.target.value || 0)
+                    }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+                <Input
+                  type="date"
+                  value={newLoan.next_payment_date}
+                  onChange={(event) =>
+                    setNewLoan((prev) => ({ ...prev, next_payment_date: event.target.value }))
+                  }
+                  className="bg-slate-950/60 border-cyan-500/30"
+                />
+                <Button
+                  type="button"
+                  onClick={handleCreateLoan}
+                  className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                >
+                  Add loan
+                </Button>
               </div>
             </div>
 

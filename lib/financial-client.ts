@@ -1,7 +1,10 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_WORKER_API_BASE_URL ||
-  "https://burryai-worker.mdmurtuzaali777.workers.dev"
+const API_BASE = (() => {
+  const directApiBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_WORKER_API_BASE_URL
+  const useDirectWorkerApi = process.env.NEXT_PUBLIC_USE_DIRECT_WORKER_API === "true"
+  const base = useDirectWorkerApi && directApiBase ? directApiBase : "/api"
+  return base.replace(/\/+$/, "")
+})()
 
 export type RiskTolerance = "low" | "moderate" | "high"
 
@@ -104,8 +107,10 @@ export interface AgentAdviceResponse {
   model_used: string
   intent: "budgeting" | "debt" | "savings" | "income" | "general"
   used_tools: Array<
-    "financial_summary" | "expense_insights" | "loan_insights" | "savings_planner"
+    "getFinancialProfile" | "getExpenses" | "costCutter" | "financialHealth" | "loanOptimizer"
   >
+  knowledge_sources: Array<{ title: string; source: string }>
+  web_sources: Array<{ title: string; url: string; source: "tavily" | "serper" | "none" }>
 }
 
 type ErrorResponse = {
