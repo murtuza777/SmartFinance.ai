@@ -128,11 +128,19 @@ describe("Agent routes", () => {
       model_used: string
       intent: string
       used_tools: string[]
+      knowledge_sources: Array<{ title: string; source: string }>
+      web_sources: Array<{ title: string; url: string; source: string }>
     }
     expect(payload.response.length).toBeGreaterThan(0)
     expect(payload.model_used.length).toBeGreaterThan(0)
     expect(payload.intent).toBe("debt")
     expect(payload.used_tools.length).toBeGreaterThan(0)
+    expect(payload.used_tools).toContain("loanOptimizer")
+    expect(payload.knowledge_sources.length).toBeGreaterThan(0)
+    expect(Array.isArray(payload.web_sources)).toBe(true)
+    if (payload.model_used.startsWith("fallback:")) {
+      expect(payload.response.toLowerCase()).toContain("knowledge context")
+    }
 
     const logRow = await env.DB.prepare(
       "SELECT user_id, query, response, model_used FROM ai_logs WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 1"
