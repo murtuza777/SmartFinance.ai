@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "burryai-worker-test",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "burryai-db",
+      "database_id": "170c5ca9-cc9e-4e45-9ed9-d77a0dec1f98",
+      "migrations_dir": "../workers/migrations"
+    }
+  ],
+  "vars": {
+    "ENABLE_VECTORIZE_RAG": "false",
+    "WEB_SEARCH_PROVIDER": "tavily"
+  }
+}
