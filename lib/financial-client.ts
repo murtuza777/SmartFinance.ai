@@ -275,3 +275,39 @@ export async function getAgentAdvice(message: string): Promise<AgentAdviceRespon
   if (!response.ok) throw new Error(await parseError(response))
   return (await response.json()) as AgentAdviceResponse
 }
+
+export interface CostAnalysisResponse {
+  analysis: string
+  model_used: string
+  context: {
+    monthlyIncome: number
+    monthlyExpenses: number
+    remainingBalance: number
+    expenseRatio: number
+    financialHealthScore: number
+    topExpenseCategories: Array<{ category: string; amount: number }>
+  }
+  used_tools: string[]
+  knowledge_sources: Array<{ title: string; source: string }>
+}
+
+export async function getCostAnalysis(): Promise<CostAnalysisResponse> {
+  const response = await apiRequest("agent/cost-analysis", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+  if (!response.ok) throw new Error(await parseError(response))
+  return (await response.json()) as CostAnalysisResponse
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  const response = await apiRequest(`expenses/${id}`, { method: "DELETE" })
+  if (!response.ok) throw new Error(await parseError(response))
+}
+
+export async function deleteLoan(id: string): Promise<void> {
+  const response = await apiRequest(`loans/${id}`, { method: "DELETE" })
+  if (!response.ok) throw new Error(await parseError(response))
+}

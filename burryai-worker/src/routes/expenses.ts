@@ -82,4 +82,24 @@ expensesRoutes.get("/", async (c) => {
   }
 })
 
+expensesRoutes.delete("/:id", async (c) => {
+  try {
+    const userId = c.get("userId")
+    const expenseId = c.req.param("id")
+    const result = await c.env.DB.prepare(
+      "DELETE FROM expenses WHERE id = ?1 AND user_id = ?2"
+    )
+      .bind(expenseId, userId)
+      .run()
+
+    if (!result.meta.changes || result.meta.changes === 0) {
+      return c.json({ error: "Expense not found" }, 404)
+    }
+
+    return c.json({ ok: true })
+  } catch {
+    return c.json({ error: "Failed to delete expense" }, 500)
+  }
+})
+
 export default expensesRoutes

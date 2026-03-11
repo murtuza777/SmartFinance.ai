@@ -148,4 +148,24 @@ loansRoutes.get("/", async (c) => {
   }
 })
 
+loansRoutes.delete("/:id", async (c) => {
+  try {
+    const userId = c.get("userId")
+    const loanId = c.req.param("id")
+    const result = await c.env.DB.prepare(
+      "DELETE FROM loans WHERE id = ?1 AND user_id = ?2"
+    )
+      .bind(loanId, userId)
+      .run()
+
+    if (!result.meta.changes || result.meta.changes === 0) {
+      return c.json({ error: "Loan not found" }, 404)
+    }
+
+    return c.json({ ok: true })
+  } catch {
+    return c.json({ error: "Failed to delete loan" }, 500)
+  }
+})
+
 export default loansRoutes
