@@ -329,6 +329,7 @@ Required GitHub repository secrets:
 
 * `CLOUDFLARE_API_TOKEN`
 * `CLOUDFLARE_ACCOUNT_ID`
+* `D1_DATABASE_ID` (recommended for CI to target the correct remote D1 instance)
 * `JWT_SECRET`
 * `GEMINI_API_KEY` (optional but recommended)
 * `TAVILY_API_KEY` or `SERPER_API_KEY` (for phase 9 web retrieval)

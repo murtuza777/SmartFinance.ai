@@ -55,11 +55,19 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         run: |
+          if [ -n "$D1_DATABASE_ID" ]; then
+            sed -i "s/\"database_id\": \"[^\"]*\"/\"database_id\": \"$D1_DATABASE_ID\"/" burryai-worker/wrangler.jsonc
+          fi
+
+          npx wrangler whoami
+          npx wrangler d1 info burryai-db --config burryai-worker/wrangler.jsonc --remote
+
           npx wrangler d1 migrations apply burryai-db --config burryai-worker/wrangler.jsonc --remote
           npx wrangler secret put JWT_SECRET --config burryai-worker/wrangler.jsonc <<< "$JWT_SECRET"
           if [ -n "$GEMINI_API_KEY" ]; then npx wrangler secret put GEMINI_API_KEY --config burryai-worker/wrangler.jsonc <<< "$GEMINI_API_KEY"; fi
