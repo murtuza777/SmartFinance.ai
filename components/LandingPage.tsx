@@ -126,12 +126,12 @@ export default function LandingPage() {
       </nav>
 
       <section className="relative min-h-screen flex items-center justify-center px-4">
-        <div className="container mx-auto grid lg:grid-cols-2 gap-12 items-center">
+        <div className="container mx-auto flex justify-center">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="max-w-4xl"
+            className="max-w-4xl text-center"
           >
             <h1 className="text-5xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
               AI Financial Advisor For Students
@@ -140,7 +140,7 @@ export default function LandingPage() {
               BurryAI combines financial analytics, agentic AI, and real data to help you optimize spending,
               reduce debt risk, and build better money habits.
             </p>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 justify-center">
               <HolographicButton
                 onClick={() => router.push('/login')}
                 icon={Rocket}
@@ -155,30 +155,6 @@ export default function LandingPage() {
                 Learn More
               </HolographicButton>
             </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.15 }}
-          >
-            <HolographicCard className="p-6 border-cyan-400/40 bg-black/40">
-              <h3 className="text-xl font-semibold text-cyan-300 mb-4">What You Get On Day One</h3>
-              <ul className="space-y-3 text-gray-200">
-                <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-cyan-400" />
-                  User-scoped financial profile with income and spending baseline
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-cyan-400" />
-                  AI recommendations tied to your current debt and savings context
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-cyan-400" />
-                  A dashboard designed for action, not just pretty charts
-                </li>
-              </ul>
-            </HolographicCard>
           </motion.div>
         </div>
       </section>
