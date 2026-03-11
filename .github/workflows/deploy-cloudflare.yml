@@ -73,6 +73,11 @@ jobs:
           if [ -n "$GEMINI_API_KEY" ]; then npx wrangler secret put GEMINI_API_KEY --config burryai-worker/wrangler.jsonc <<< "$GEMINI_API_KEY"; fi
           if [ -n "$TAVILY_API_KEY" ]; then npx wrangler secret put TAVILY_API_KEY --config burryai-worker/wrangler.jsonc <<< "$TAVILY_API_KEY"; fi
           if [ -n "$SERPER_API_KEY" ]; then npx wrangler secret put SERPER_API_KEY --config burryai-worker/wrangler.jsonc <<< "$SERPER_API_KEY"; fi
+
+          # Ensure the Vectorize index used by FINANCE_KB_INDEX exists.
+          # Safe to run repeatedly; creation will be skipped if it already exists.
+          npx wrangler vectorize create financial-data --dimensions=768 --metric=cosine || echo "Vectorize index create skipped or already exists"
+
           npm run deploy:worker
 
       - name: Deploy Frontend (OpenNext Cloudflare)
