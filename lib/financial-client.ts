@@ -117,6 +117,12 @@ type ErrorResponse = {
   error?: string
 }
 
+const NETWORK_RETRY_DELAYS_MS = [250, 500]
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function parseError(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as ErrorResponse
@@ -128,11 +134,31 @@ async function parseError(response: Response): Promise<string> {
   return `Request failed with status ${response.status}`
 }
 
+async function requestWithRetry(input: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt <= NETWORK_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await fetch(input, init)
+    } catch (error) {
+      if (attempt === NETWORK_RETRY_DELAYS_MS.length) {
+        break
+      }
+      await sleep(NETWORK_RETRY_DELAYS_MS[attempt])
+    }
+  }
+
+  throw new Error("Unable to load data right now. Please retry in a few seconds.")
+}
+
 async function apiRequest(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(`${API_BASE}/${path}`, {
-    credentials: "include",
-    ...init
-  })
+  try {
+    return await requestWithRetry(`${API_BASE}/${path}`, {
+      credentials: "include",
+      ...init
+    })
+  } catch (error) {
+    if (error instanceof Error) throw error
+    throw new Error("Unable to load data right now. Please retry in a few seconds.")
+  }
 }
 
 export async function getFinancialProfile(): Promise<FinancialProfile> {

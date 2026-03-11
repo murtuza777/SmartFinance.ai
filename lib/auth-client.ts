@@ -21,6 +21,12 @@ type ErrorResponse = {
   error?: string
 }
 
+const NETWORK_RETRY_DELAYS_MS = [250, 500]
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function parseError(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as ErrorResponse
@@ -32,15 +38,34 @@ async function parseError(response: Response): Promise<string> {
   return `Request failed with status ${response.status}`
 }
 
+async function requestWithRetry(input: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt <= NETWORK_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await fetch(input, init)
+    } catch (error) {
+      if (attempt === NETWORK_RETRY_DELAYS_MS.length) {
+        break
+      }
+      await sleep(NETWORK_RETRY_DELAYS_MS[attempt])
+    }
+  }
+  throw new Error("Unable to reach the server right now. Please try again.")
+}
+
 async function authPost(path: string, payload?: Record<string, unknown>): Promise<Response> {
-  return fetch(`${API_BASE}/auth/${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: payload ? JSON.stringify(payload) : undefined
-  })
+  try {
+    return await requestWithRetry(`${API_BASE}/auth/${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: payload ? JSON.stringify(payload) : undefined
+    })
+  } catch (error) {
+    if (error instanceof Error) throw error
+    throw new Error("Unable to reach the server right now. Please try again.")
+  }
 }
 
 export async function signup(email: string, password: string): Promise<AppUser> {
@@ -69,10 +94,15 @@ export async function logout(): Promise<void> {
 }
 
 export async function me(): Promise<AppUser | null> {
-  const response = await fetch(`${API_BASE}/auth/me`, {
-    method: "GET",
-    credentials: "include"
-  })
+  let response: Response
+  try {
+    response = await requestWithRetry(`${API_BASE}/auth/me`, {
+      method: "GET",
+      credentials: "include"
+    })
+  } catch {
+    return null
+  }
 
   if (response.status === 401 || response.status === 404) {
     return null

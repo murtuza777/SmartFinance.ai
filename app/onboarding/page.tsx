@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BrandIdentity } from '@/components/BrandIdentity'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   createExpense,
@@ -133,7 +134,12 @@ export default function OnboardingPage() {
 
       router.replace('/dashboard')
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Failed to save onboarding')
+      const message = submitError instanceof Error ? submitError.message : 'Failed to save onboarding'
+      if (message.toLowerCase().includes('failed to fetch')) {
+        setError('Connection issue while saving onboarding. Please retry in a few seconds.')
+      } else {
+        setError(message)
+      }
     } finally {
       setSaving(false)
     }
@@ -149,11 +155,21 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,#0f766e26,transparent_45%),radial-gradient(circle_at_80%_0%,#1d4ed826,transparent_35%),linear-gradient(#020617,#020617)] text-slate-100 px-4 py-10">
-      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-cyan-500/20 bg-slate-900/70 backdrop-blur p-6 md:p-8">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Set up your financial profile</h1>
-        <p className="text-slate-300 mt-2">
-          This onboarding replaces dashboard mock data with your real baseline metrics.
-        </p>
+      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-cyan-500/25 bg-slate-900/70 backdrop-blur p-6 md:p-8 shadow-[0_22px_80px_rgba(6,182,212,0.2)]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="mb-3">
+              <BrandIdentity size={28} textClassName="text-xl font-semibold text-cyan-200" />
+            </div>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Set up your financial profile</h1>
+            <p className="text-slate-300 mt-2">
+              This onboarding replaces dashboard mock data with your real baseline metrics.
+            </p>
+          </div>
+          <div className="rounded-full border border-cyan-500/30 bg-slate-950/70 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-cyan-200">
+            Step 1 of 1
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
@@ -318,7 +334,7 @@ export default function OnboardingPage() {
             />
           </div>
 
-          <div className="md:col-span-2 rounded-xl border border-cyan-500/20 bg-slate-950/50 p-4">
+          <div className="md:col-span-2 rounded-xl border border-cyan-500/30 bg-slate-950/60 p-4">
             <p className="text-sm text-slate-300">Estimated monthly remaining balance</p>
             <p
               className={`mt-1 text-2xl font-semibold ${
@@ -333,18 +349,18 @@ export default function OnboardingPage() {
             <p className="md:col-span-2 text-sm text-rose-400">{error}</p>
           ) : null}
 
-          <div className="md:col-span-2 flex justify-end gap-3">
+          <div className="md:col-span-2 flex justify-end gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.push('/dashboard')}
-              className="border-slate-700 bg-slate-900 hover:bg-slate-800"
+              className="border-slate-700 bg-slate-900/85 hover:bg-slate-800"
             >
               Skip for now
             </Button>
             <Button
               type="submit"
-              className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold"
+              className="bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-300 hover:brightness-105 text-slate-950 font-semibold"
               disabled={saving}
             >
               {saving ? 'Saving profile...' : 'Complete onboarding'}

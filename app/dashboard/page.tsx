@@ -6,6 +6,7 @@ import { Loader2, LogOut, TrendingUp, Wallet, CreditCard, PieChart, UserRound } 
 import { Line, Doughnut } from 'react-chartjs-2'
 import {
   ArcElement,
+  BarElement,
   CategoryScale,
   Chart as ChartJS,
   Filler,
@@ -42,7 +43,17 @@ import {
   type RiskTolerance
 } from '@/lib/financial-client'
 
-ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
+ChartJS.register(
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler
+)
 
 type ProfileForm = {
   full_name: string
@@ -175,7 +186,12 @@ export default function DashboardPage() {
         risk_tolerance: profileData.risk_tolerance
       })
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load dashboard data')
+      const message = loadError instanceof Error ? loadError.message : 'Failed to load dashboard data'
+      if (message.toLowerCase().includes('failed to fetch')) {
+        setError('Backend connection failed. Please retry in a few seconds.')
+      } else {
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -220,7 +236,12 @@ export default function DashboardPage() {
       setProfile(updated)
       await loadData()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save profile')
+      const message = saveError instanceof Error ? saveError.message : 'Failed to save profile'
+      if (message.toLowerCase().includes('failed to fetch')) {
+        setError('Unable to save right now due to a network issue. Please try again shortly.')
+      } else {
+        setError(message)
+      }
     } finally {
       setSaving(false)
     }
@@ -603,217 +624,240 @@ export default function DashboardPage() {
         ) : null}
 
         {activeTab === 'profile' ? (
-          <HolographicCard>
-            <div className="flex items-center justify-between gap-3 mb-6">
-              <h3 className="text-2xl font-semibold flex items-center gap-2">
-                <UserRound className="h-6 w-6 text-cyan-300" />
-                Profile Settings
-              </h3>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/onboarding')}
-                className="border-slate-700 bg-slate-900 hover:bg-slate-800"
-              >
-                Re-run onboarding
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label htmlFor="full_name">Full name</Label>
-                <Input
-                  id="full_name"
-                  value={profileForm.full_name}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({ ...prev, full_name: event.target.value }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Input
-                  id="country"
-                  value={profileForm.country}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({ ...prev, country: event.target.value }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="student_status">Student status</Label>
-                <Input
-                  id="student_status"
-                  value={profileForm.student_status}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({ ...prev, student_status: event.target.value }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="university">University</Label>
-                <Input
-                  id="university"
-                  value={profileForm.university}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({ ...prev, university: event.target.value }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="monthly_income">Monthly income</Label>
-                <Input
-                  id="monthly_income"
-                  type="number"
-                  min={0}
-                  value={profileForm.monthly_income}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({
-                      ...prev,
-                      monthly_income: Number(event.target.value || 0)
-                    }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="savings_goal">Savings goal</Label>
-                <Input
-                  id="savings_goal"
-                  type="number"
-                  min={0}
-                  value={profileForm.savings_goal}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({
-                      ...prev,
-                      savings_goal: Number(event.target.value || 0)
-                    }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="risk_tolerance">Risk tolerance</Label>
-                <select
-                  id="risk_tolerance"
-                  value={profileForm.risk_tolerance}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({
-                      ...prev,
-                      risk_tolerance: event.target.value as RiskTolerance
-                    }))
-                  }
-                  className="w-full h-10 rounded-md border border-cyan-500/30 bg-slate-950/60 px-3 text-sm outline-none focus:border-cyan-300"
-                >
-                  <option value="low">Low</option>
-                  <option value="moderate">Moderate</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-4 space-y-3">
-                <h4 className="text-lg font-semibold">Add Expense</h4>
-                <Input
-                  placeholder="Category"
-                  value={newExpense.category}
-                  onChange={(event) =>
-                    setNewExpense((prev) => ({ ...prev, category: event.target.value }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="Amount"
-                  value={newExpense.amount}
-                  onChange={(event) =>
-                    setNewExpense((prev) => ({ ...prev, amount: Number(event.target.value || 0) }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-                <Input
-                  placeholder="Description (optional)"
-                  value={newExpense.description}
-                  onChange={(event) =>
-                    setNewExpense((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
+          <HolographicCard className="relative overflow-hidden border-cyan-500/25">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 rounded-xl" />
+            <div className="relative z-10 backdrop-blur-sm bg-black/30 border border-cyan-500/30 rounded-xl p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+                <div>
+                  <h3 className="text-2xl font-semibold flex items-center gap-2">
+                    <UserRound className="h-6 w-6 text-cyan-300" />
+                    Profile Settings
+                  </h3>
+                  <p className="text-sm text-slate-300 mt-1">
+                    Keep your financial profile accurate for better recommendations and projections.
+                  </p>
+                </div>
                 <Button
-                  type="button"
-                  onClick={handleCreateExpense}
-                  className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                  variant="outline"
+                  onClick={() => router.push('/onboarding')}
+                  className="border-slate-700 bg-slate-900/80 hover:bg-slate-800"
                 >
-                  Add expense
+                  Re-run onboarding
                 </Button>
               </div>
 
-              <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-4 space-y-3">
-                <h4 className="text-lg font-semibold">Add Loan</h4>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="Loan amount"
-                  value={newLoan.loan_amount}
-                  onChange={(event) =>
-                    setNewLoan((prev) => ({ ...prev, loan_amount: Number(event.target.value || 0) }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="Interest rate (%)"
-                  value={newLoan.interest_rate}
-                  onChange={(event) =>
-                    setNewLoan((prev) => ({ ...prev, interest_rate: Number(event.target.value || 0) }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="Monthly payment"
-                  value={newLoan.monthly_payment}
-                  onChange={(event) =>
-                    setNewLoan((prev) => ({
-                      ...prev,
-                      monthly_payment: Number(event.target.value || 0)
-                    }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
-                <Input
-                  type="date"
-                  value={newLoan.next_payment_date}
-                  onChange={(event) =>
-                    setNewLoan((prev) => ({ ...prev, next_payment_date: event.target.value }))
-                  }
-                  className="bg-slate-950/60 border-cyan-500/30"
-                />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-5 space-y-4">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/90">
+                    Personal & Academic
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="full_name">Full name</Label>
+                      <Input
+                        id="full_name"
+                        value={profileForm.full_name}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, full_name: event.target.value }))
+                        }
+                        className="bg-slate-950/70 border-cyan-500/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="country">Country</Label>
+                      <Input
+                        id="country"
+                        value={profileForm.country}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, country: event.target.value }))
+                        }
+                        className="bg-slate-950/70 border-cyan-500/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student_status">Student status</Label>
+                      <Input
+                        id="student_status"
+                        value={profileForm.student_status}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, student_status: event.target.value }))
+                        }
+                        className="bg-slate-950/70 border-cyan-500/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="university">University</Label>
+                      <Input
+                        id="university"
+                        value={profileForm.university}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, university: event.target.value }))
+                        }
+                        className="bg-slate-950/70 border-cyan-500/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-5 space-y-4">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/90">
+                    Financial Preferences
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="monthly_income">Monthly income</Label>
+                      <Input
+                        id="monthly_income"
+                        type="number"
+                        min={0}
+                        value={profileForm.monthly_income}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            monthly_income: Number(event.target.value || 0)
+                          }))
+                        }
+                        className="bg-slate-950/70 border-cyan-500/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="savings_goal">Savings goal</Label>
+                      <Input
+                        id="savings_goal"
+                        type="number"
+                        min={0}
+                        value={profileForm.savings_goal}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            savings_goal: Number(event.target.value || 0)
+                          }))
+                        }
+                        className="bg-slate-950/70 border-cyan-500/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="risk_tolerance">Risk tolerance</Label>
+                      <select
+                        id="risk_tolerance"
+                        value={profileForm.risk_tolerance}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            risk_tolerance: event.target.value as RiskTolerance
+                          }))
+                        }
+                        className="w-full h-10 rounded-md border border-cyan-500/30 bg-slate-950/70 px-3 text-sm outline-none focus:border-cyan-300"
+                      >
+                        <option value="low">Low</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-5 space-y-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/90">Quick Add Expense</h4>
+                  <Input
+                    placeholder="Category"
+                    value={newExpense.category}
+                    onChange={(event) =>
+                      setNewExpense((prev) => ({ ...prev, category: event.target.value }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Amount"
+                    value={newExpense.amount}
+                    onChange={(event) =>
+                      setNewExpense((prev) => ({ ...prev, amount: Number(event.target.value || 0) }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
+                  <Input
+                    placeholder="Description (optional)"
+                    value={newExpense.description}
+                    onChange={(event) =>
+                      setNewExpense((prev) => ({ ...prev, description: event.target.value }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleCreateExpense}
+                    className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                  >
+                    Add expense
+                  </Button>
+                </div>
+
+                <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-5 space-y-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/90">Quick Add Loan</h4>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Loan amount"
+                    value={newLoan.loan_amount}
+                    onChange={(event) =>
+                      setNewLoan((prev) => ({ ...prev, loan_amount: Number(event.target.value || 0) }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Interest rate (%)"
+                    value={newLoan.interest_rate}
+                    onChange={(event) =>
+                      setNewLoan((prev) => ({ ...prev, interest_rate: Number(event.target.value || 0) }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Monthly payment"
+                    value={newLoan.monthly_payment}
+                    onChange={(event) =>
+                      setNewLoan((prev) => ({
+                        ...prev,
+                        monthly_payment: Number(event.target.value || 0)
+                      }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
+                  <Input
+                    type="date"
+                    value={newLoan.next_payment_date}
+                    onChange={(event) =>
+                      setNewLoan((prev) => ({ ...prev, next_payment_date: event.target.value }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleCreateLoan}
+                    className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                  >
+                    Add loan
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-7 flex justify-end">
                 <Button
-                  type="button"
-                  onClick={handleCreateLoan}
+                  onClick={handleSaveProfile}
+                  disabled={saving || isGuest}
                   className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
                 >
-                  Add loan
+                  {saving ? 'Saving...' : 'Save profile'}
                 </Button>
               </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button
-                onClick={handleSaveProfile}
-                disabled={saving || isGuest}
-                className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
-              >
-                {saving ? 'Saving...' : 'Save profile'}
-              </Button>
             </div>
           </HolographicCard>
         ) : null}

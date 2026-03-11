@@ -198,12 +198,12 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
   return (
     <div className="flex w-full gap-6 max-h-[80vh] min-h-[600px]">
       <HolographicCard className="w-1/2 flex flex-col h-full">
-        <div className="flex items-center justify-between gap-2 p-4 border-b border-gray-800 bg-black/30">
+        <div className="flex items-center justify-between gap-2 p-4 border-b border-cyan-500/20 bg-slate-950/40">
           <div className="flex items-center gap-2">
             <Bot className="w-6 h-6 text-cyan-500" />
-            <h3 className="text-xl font-bold">AI Financial Advisor</h3>
+            <h3 className="text-xl font-semibold">AI Financial Advisor</h3>
           </div>
-          <p className="text-xs text-slate-400">Backend Agent</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-cyan-200/80">Backend Agent</p>
         </div>
 
         <div
@@ -218,12 +218,14 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
                 onClick={() => setSelectedMessage(message)}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-4 cursor-pointer transition-all duration-300 hover:scale-[1.02] ${
-                    message.role === "assistant" ? "bg-gray-800 text-white" : "bg-cyan-500 text-white"
+                  className={`max-w-[80%] rounded-xl p-4 cursor-pointer transition-all duration-300 hover:scale-[1.01] ${
+                    message.role === "assistant"
+                      ? "bg-slate-900/85 border border-cyan-500/20 text-white"
+                      : "bg-cyan-500/90 text-slate-950"
                   } ${selectedMessage === message ? "ring-2 ring-cyan-500" : ""}`}
                 >
                   <p className="whitespace-pre-wrap font-sans">{message.content}</p>
-                  <div className="text-xs text-gray-400 mt-2">
+                  <div className="text-xs text-slate-400 mt-2">
                     {message.timestamp.toLocaleTimeString()}
                     {message.modelUsed ? ` | ${message.modelUsed}` : ""}
                   </div>
@@ -233,7 +235,7 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
 
             {isLoading ? (
               <div className="flex justify-start">
-                <div className="bg-gray-800 text-white rounded-lg p-4">
+                <div className="bg-slate-900/85 border border-cyan-500/20 text-white rounded-xl p-4">
                   <div className="flex gap-2">
                     <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" />
                     <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce [animation-delay:-.3s]" />
@@ -245,7 +247,7 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-800 bg-black/30">
+        <div className="p-4 border-t border-cyan-500/20 bg-slate-950/40">
           <div className="flex gap-2">
             <Input
               value={inputMessage}
@@ -257,12 +259,12 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
                 }
               }}
               placeholder="Ask about your finances..."
-              className="flex-grow bg-gray-900 border-gray-700"
+              className="flex-grow bg-slate-950/75 border-cyan-500/30 focus-visible:ring-cyan-300/40"
             />
             <button
               onClick={() => void sendMessage()}
               disabled={isLoading || !inputMessage.trim()}
-              className="p-2 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg bg-cyan-400 text-slate-950 hover:bg-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -273,7 +275,7 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
       <HolographicCard className="w-1/2 flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-6 h-6 text-cyan-500" />
-          <h3 className="text-xl font-bold">Visual Insights</h3>
+          <h3 className="text-xl font-semibold">Visual Insights</h3>
         </div>
 
         <div className="flex-grow flex items-center justify-center p-4">
@@ -342,7 +344,7 @@ export function AIAdvisor({ userData }: AIAdvisorProps) {
           ) : null}
 
           {!selectedMessage?.visualData.type ? (
-            <div className="text-center text-gray-400">
+            <div className="text-center text-slate-400">
               <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-cyan-500/50" />
               <p>No visualization available for this query.</p>
               <p className="text-sm mt-2">Try asking about trends, comparisons, or distributions.</p>

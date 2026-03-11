@@ -16,20 +16,36 @@ export async function proxyToWorker(
   const headers = new Headers(request.headers)
   headers.delete("host")
   headers.delete("content-length")
+  headers.delete("accept-encoding")
 
   const body =
     request.method === "GET" || request.method === "HEAD"
       ? undefined
       : await request.arrayBuffer()
 
-  const upstream = await fetch(targetUrl.toString(), {
-    method: request.method,
-    headers,
-    body,
-    redirect: "manual"
-  })
+  let upstream: Response
+  try {
+    upstream = await fetch(targetUrl.toString(), {
+      method: request.method,
+      headers,
+      body,
+      redirect: "manual"
+    })
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Backend service is temporarily unavailable. Please retry in a few seconds."
+      },
+      { status: 503 }
+    )
+  }
 
   const responseHeaders = new Headers(upstream.headers)
+  // Avoid browser decoding errors when upstream compression headers
+  // do not match the proxied body payload.
+  responseHeaders.delete("content-encoding")
+  responseHeaders.delete("content-length")
+  responseHeaders.delete("transfer-encoding")
   // Ensure auth cookies set by the worker are always preserved
   // on the proxied response back to the browser.
   responseHeaders.delete("set-cookie")
@@ -44,7 +60,9 @@ export async function proxyToWorker(
     responseHeaders.append("set-cookie", setCookie)
   }
 
-  return new NextResponse(upstream.body, {
+  const responseBody = await upstream.arrayBuffer()
+
+  return new NextResponse(responseBody, {
     status: upstream.status,
     headers: responseHeaders
   })
