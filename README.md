@@ -286,6 +286,21 @@ Financial Insights
 
 ---
 
+# Local Development
+
+Run both frontend and worker together:
+
+* `npm run dev:all`
+
+Notes:
+
+* `dev:all` now clears ports `3000` and `8787` before startup to avoid `EADDRINUSE` crashes.
+* Frontend runs on `http://localhost:3000`
+* Worker API runs on `http://127.0.0.1:8787`
+* Auth/data requests are proxied through `/api/*` so session cookies remain stable in local dev and production.
+
+---
+
 # Deployment
 
 Frontend
