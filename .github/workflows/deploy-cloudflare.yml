@@ -66,7 +66,7 @@ jobs:
           fi
 
           npx wrangler whoami
-          npx wrangler d1 info burryai-db --config burryai-worker/wrangler.jsonc --remote
+          npx wrangler d1 info burryai-db --config burryai-worker/wrangler.jsonc
 
           npx wrangler d1 migrations apply burryai-db --config burryai-worker/wrangler.jsonc --remote
           npx wrangler secret put JWT_SECRET --config burryai-worker/wrangler.jsonc <<< "$JWT_SECRET"
