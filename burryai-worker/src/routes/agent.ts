@@ -88,4 +88,45 @@ agentRoutes.post("/advice", async (c) => {
   }
 })
 
+agentRoutes.post("/cost-analysis", async (c) => {
+  try {
+    const userId = c.get("userId")
+    const useVectorize = c.env.ENABLE_VECTORIZE_RAG === "true"
+    const result = await runFinancialAgent({
+      db: c.env.DB,
+      userId,
+      userMessage:
+        "Analyze my spending in detail. For each expense category, give specific actionable tips to reduce costs. Calculate how much I can realistically save per category. Provide a personalized savings plan.",
+      geminiApiKey: c.env.GEMINI_API_KEY,
+      geminiModel: c.env.GEMINI_MODEL,
+      knowledgeIndex: useVectorize ? c.env.FINANCE_KB_INDEX : undefined,
+      aiBinding: c.env.AI,
+      embeddingModel: c.env.EMBEDDING_MODEL,
+      webSearchProvider: c.env.WEB_SEARCH_PROVIDER,
+      tavilyApiKey: c.env.TAVILY_API_KEY,
+      serperApiKey: c.env.SERPER_API_KEY
+    })
+
+    return c.json({
+      analysis: result.response,
+      model_used: result.modelUsed,
+      context: {
+        monthlyIncome: result.context.monthlyIncome,
+        monthlyExpenses: result.context.monthlyExpenses,
+        remainingBalance: result.context.remainingBalance,
+        expenseRatio: result.context.expenseRatio,
+        financialHealthScore: result.context.financialHealthScore,
+        topExpenseCategories: result.context.topExpenseCategories
+      },
+      used_tools: result.selectedTools,
+      knowledge_sources: result.knowledgeChunks.map((chunk) => ({
+        title: chunk.title,
+        source: chunk.source
+      }))
+    })
+  } catch {
+    return c.json({ error: "Failed to generate cost analysis" }, 500)
+  }
+})
+
 export default agentRoutes

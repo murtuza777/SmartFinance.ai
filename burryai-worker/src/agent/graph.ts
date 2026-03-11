@@ -51,6 +51,7 @@ export async function runFinancialAgent(params: {
   const generation = await generateAgentResponse({
     apiKey: params.geminiApiKey,
     preferredModel: params.geminiModel,
+    aiBinding: params.aiBinding,
     intent,
     userMessage: params.userMessage,
     context,
