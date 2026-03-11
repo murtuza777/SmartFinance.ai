@@ -139,7 +139,8 @@ describe("Agent routes", () => {
     expect(payload.knowledge_sources.length).toBeGreaterThan(0)
     expect(Array.isArray(payload.web_sources)).toBe(true)
     if (payload.model_used.startsWith("fallback:")) {
-      expect(payload.response.toLowerCase()).toContain("knowledge context")
+      // Rule-based fallback returns structured advice; assert intent-related content
+      expect(payload.response.toLowerCase()).toContain("debt")
     }
 
     const logRow = await env.DB.prepare(
