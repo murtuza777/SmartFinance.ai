@@ -93,22 +93,22 @@ export function FinancialTimeline({ userData }: TimelineProps) {
         </HolographicCard>
       ) : null}
       {/* Timeline Controls */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <HolographicButton
           onClick={() => setTimeframe('1year')}
-          className={timeframe === '1year' ? 'bg-cyan-400 text-slate-950 font-semibold' : 'bg-slate-900/70 border border-cyan-500/20'}
+          className={timeframe === '1year' ? 'bg-cyan-300 text-slate-950 font-semibold border-cyan-200' : ''}
         >
           1 Year
         </HolographicButton>
         <HolographicButton
           onClick={() => setTimeframe('3years')}
-          className={timeframe === '3years' ? 'bg-cyan-400 text-slate-950 font-semibold' : 'bg-slate-900/70 border border-cyan-500/20'}
+          className={timeframe === '3years' ? 'bg-cyan-300 text-slate-950 font-semibold border-cyan-200' : ''}
         >
           3 Years
         </HolographicButton>
         <HolographicButton
           onClick={() => setTimeframe('5years')}
-          className={timeframe === '5years' ? 'bg-cyan-400 text-slate-950 font-semibold' : 'bg-slate-900/70 border border-cyan-500/20'}
+          className={timeframe === '5years' ? 'bg-cyan-300 text-slate-950 font-semibold border-cyan-200' : ''}
         >
           5 Years
         </HolographicButton>
@@ -151,21 +151,21 @@ export function FinancialTimeline({ userData }: TimelineProps) {
               plugins: {
                 legend: {
                   position: 'top',
-                  labels: { color: 'white' }
+                  labels: { color: '#cbd5e1' }
                 }
               },
               scales: {
                 y: {
                   beginAtZero: true,
-                  grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                  grid: { color: 'rgba(148, 163, 184, 0.18)' },
                   ticks: { 
-                    color: 'white',
+                    color: '#cbd5e1',
                     callback: (value) => `$${value.toLocaleString()}`
                   }
                 },
                 x: {
-                  grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                  ticks: { color: 'white' }
+                  grid: { color: 'rgba(148, 163, 184, 0.14)' },
+                  ticks: { color: '#cbd5e1' }
                 }
               }
             }}
@@ -178,7 +178,7 @@ export function FinancialTimeline({ userData }: TimelineProps) {
         <HolographicCard>
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-slate-400">Total Interest</h4>
+              <h4 className="text-slate-400 text-sm">Total Interest</h4>
               <p className="text-2xl font-bold">
                 ${timelineData.reduce((sum, d) => sum + d.interest, 0).toLocaleString()}
               </p>
@@ -190,7 +190,7 @@ export function FinancialTimeline({ userData }: TimelineProps) {
         <HolographicCard>
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-slate-400">Payoff Progress</h4>
+              <h4 className="text-slate-400 text-sm">Payoff Progress</h4>
               <p className="text-2xl font-bold">
                 {payoffProgress}%
               </p>
@@ -202,7 +202,7 @@ export function FinancialTimeline({ userData }: TimelineProps) {
         <HolographicCard>
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-slate-400">Time Remaining</h4>
+              <h4 className="text-slate-400 text-sm">Time Remaining</h4>
               <p className="text-2xl font-bold">
                 {standardPayoffMonth} months
               </p>

@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { ReactNode } from 'react'
-import { ParticleSystem } from './ParticleSystem'
 
 interface HolographicButtonProps {
   children: ReactNode;
@@ -16,8 +15,8 @@ export const HolographicButton: React.FC<HolographicButtonProps> = ({
   className = '' 
 }) => (
   <motion.button
-    className={`px-4 py-2 rounded-full transition-all duration-300 flex items-center justify-center space-x-2 ${className}`}
-    whileHover={{ scale: 1.05 }}
+    className={`inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/75 px-4 py-2.5 text-sm font-medium text-slate-200 transition-all duration-200 hover:border-cyan-400/45 hover:bg-slate-800/80 hover:text-cyan-100 ${className}`}
+    whileHover={{ scale: 1.02 }}
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
   >
@@ -34,31 +33,16 @@ interface HolographicCardProps {
 export const HolographicCard: React.FC<HolographicCardProps> = ({ children, className = '', ...props }) => {
   return (
     <motion.div
-      className={`relative overflow-hidden ${className}`}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      className={`relative overflow-hidden rounded-2xl border border-slate-800/90 bg-gradient-to-b from-slate-900/85 via-slate-950/90 to-slate-950/95 p-6 shadow-[0_14px_45px_rgba(2,6,23,0.45)] ring-1 ring-white/[0.04] ${className}`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22 }}
       {...props}
     >
-      {/* Floating particle system */}
-      <div className="absolute inset-0 pointer-events-none">
-        <ParticleSystem density={50} color="rgba(6, 182, 212, 0.1)" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom_right,rgba(6,182,212,0.08),transparent_45%,rgba(56,189,248,0.05))]" />
+      <div className="relative z-10">
+        {children}
       </div>
-      
-      {/* Depth layers */}
-      <div className="relative z-10 backdrop-blur-sm bg-black/30 border border-cyan-500/30 rounded-xl p-6">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 rounded-xl" />
-        <div className="relative z-20">{children}</div>
-      </div>
-      
-      {/* Interactive glow effect */}
-      <motion.div 
-        className="absolute inset-0 bg-gradient-radial pointer-events-none"
-        animate={{ 
-          opacity: [0.2, 0.4, 0.2],
-          scale: [1, 1.05, 1] 
-        }}
-        transition={{ duration: 3, repeat: Infinity }}
-      />
     </motion.div>
   )
 } 

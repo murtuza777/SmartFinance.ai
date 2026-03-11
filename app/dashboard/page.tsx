@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, LogOut, TrendingUp, Wallet, CreditCard, PieChart, UserRound } from 'lucide-react'
+import { Loader2, LogOut, TrendingUp, Wallet, CreditCard, PieChart, UserRound, Trash2 } from 'lucide-react'
 import { Line, Doughnut } from 'react-chartjs-2'
 import {
   ArcElement,
@@ -24,9 +24,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BrandIdentity } from '@/components/BrandIdentity'
 import {
   createExpense,
   createLoan,
+  deleteExpense,
+  deleteLoan,
   getDashboardExpenseSummary,
   getDashboardCharts,
   getDashboardFinancialScore,
@@ -120,9 +123,11 @@ export default function DashboardPage() {
   const [newExpense, setNewExpense] = useState({
     amount: 0,
     category: "",
-    description: ""
+    description: "",
+    date: new Date().toISOString().slice(0, 10)
   })
   const [newLoan, setNewLoan] = useState({
+    loan_name: "",
     loan_amount: 0,
     interest_rate: 0,
     monthly_payment: 0,
@@ -254,12 +259,23 @@ export default function DashboardPage() {
       await createExpense({
         category: newExpense.category,
         amount: Number(newExpense.amount),
-        description: newExpense.description || undefined
+        description: newExpense.description || undefined,
+        date: newExpense.date || undefined
       })
-      setNewExpense({ amount: 0, category: "", description: "" })
+      setNewExpense({ amount: 0, category: "", description: "", date: new Date().toISOString().slice(0, 10) })
       await loadData()
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to add expense")
+    }
+  }
+
+  const handleDeleteExpense = async (id: string) => {
+    setError("")
+    try {
+      await deleteExpense(id)
+      await loadData()
+    } catch (delError) {
+      setError(delError instanceof Error ? delError.message : "Failed to delete expense")
     }
   }
 
@@ -268,12 +284,14 @@ export default function DashboardPage() {
     setError("")
     try {
       await createLoan({
+        loan_name: newLoan.loan_name || undefined,
         loan_amount: Number(newLoan.loan_amount),
         interest_rate: Number(newLoan.interest_rate),
         monthly_payment: Number(newLoan.monthly_payment),
         next_payment_date: newLoan.next_payment_date || undefined
       })
       setNewLoan({
+        loan_name: "",
         loan_amount: 0,
         interest_rate: 0,
         monthly_payment: 0,
@@ -282,6 +300,16 @@ export default function DashboardPage() {
       await loadData()
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to add loan")
+    }
+  }
+
+  const handleDeleteLoan = async (id: string) => {
+    setError("")
+    try {
+      await deleteLoan(id)
+      await loadData()
+    } catch (delError) {
+      setError(delError instanceof Error ? delError.message : "Failed to delete loan")
     }
   }
 
@@ -375,6 +403,7 @@ export default function DashboardPage() {
   const tabs = [
     { id: 'overview' as const, label: 'Overview' },
     { id: 'ai' as const, label: 'AI Advisor' },
+    { id: 'cost' as const, label: 'Cost Cutter' },
     { id: 'timeline' as const, label: 'Timeline' },
     { id: 'profile' as const, label: 'Profile' }
   ]
@@ -388,19 +417,22 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_10%_0%,#0f766e24,transparent_40%),radial-gradient(circle_at_90%_10%,#0ea5e924,transparent_35%),linear-gradient(#020617,#020617)] text-white">
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_8%_0%,#0891b22b,transparent_38%),radial-gradient(circle_at_92%_6%,#0ea5e91f,transparent_34%),linear-gradient(#020617,#020617)] text-white">
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
         <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-[0.25em] text-cyan-300/80">BurryAI Dashboard</p>
-            <h1 className="text-3xl font-semibold mt-1">Welcome, {displayName}</h1>
+          <div className="space-y-3">
+            <BrandIdentity size={30} textClassName="text-xl font-semibold text-cyan-200" />
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-cyan-300/75">Dashboard</p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight">Welcome, {displayName}</h1>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {user ? <p className="text-sm text-slate-300">{user.email}</p> : null}
             <Button
               variant="outline"
               onClick={handleLogout}
-              className="border-slate-700 bg-slate-900 hover:bg-slate-800"
+              className="border-slate-700 bg-slate-900/80 hover:bg-slate-800"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -420,19 +452,19 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        <div className="pt-2">
-          <div className="mx-auto w-full max-w-2xl">
-            <div className="relative rounded-full bg-gradient-to-r from-cyan-500/35 via-sky-500/20 to-teal-500/35 p-[1px] shadow-[0_18px_60px_rgba(8,47,73,0.85)]">
-              <div className="rounded-full border border-cyan-500/30 bg-slate-950/80 backdrop-blur px-1.5 py-1.5">
+        <div className="pt-1">
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="relative rounded-2xl bg-gradient-to-r from-cyan-500/30 via-sky-500/10 to-cyan-500/30 p-[1px] shadow-[0_16px_48px_rgba(8,47,73,0.5)]">
+              <div className="rounded-2xl border border-cyan-500/20 bg-slate-950/80 backdrop-blur px-2 py-2">
                 <div className="flex items-center justify-between gap-1">
                   {tabs.map((tab) => (
                     <HolographicButton
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`flex-1 rounded-full text-xs sm:text-sm font-medium px-3 py-1.5 transition-all duration-300 ${
+                      className={`flex-1 rounded-xl text-xs sm:text-sm font-medium px-3 py-2 ${
                         activeTab === tab.id
-                          ? 'bg-cyan-400 text-slate-950 border-cyan-200 shadow-[0_14px_40px_rgba(34,211,238,0.55)] hover:bg-cyan-400 hover:text-slate-950'
-                          : 'border-transparent text-slate-300 hover:bg-cyan-500/10 hover:text-cyan-200'
+                          ? 'bg-cyan-300 text-slate-950 border-cyan-200 shadow-[0_10px_30px_rgba(34,211,238,0.45)] hover:bg-cyan-300 hover:text-slate-950'
+                          : 'text-slate-300'
                       }`}
                     >
                       {tab.label}
@@ -532,15 +564,25 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <HolographicCard>
                 <h3 className="text-lg font-semibold mb-3">Recent Expenses</h3>
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                   {expenses.length === 0 ? (
                     <p className="text-slate-400 text-sm">No expenses logged yet.</p>
                   ) : (
-                    expenses.slice(0, 5).map((expense) => (
-                      <div key={expense.id} className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
-                        <p className="font-medium">{expense.category}</p>
-                        <p className="text-sm text-slate-300">${expense.amount.toLocaleString()}</p>
-                        <p className="text-xs text-slate-400">{expense.date}</p>
+                    expenses.slice(0, 10).map((expense) => (
+                      <div key={expense.id} className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3 flex items-start justify-between gap-2 group">
+                        <div className="min-w-0">
+                          <p className="font-medium">{expense.category}</p>
+                          <p className="text-sm text-slate-300">${expense.amount.toLocaleString()}</p>
+                          {expense.description ? <p className="text-xs text-slate-500 truncate">{expense.description}</p> : null}
+                          <p className="text-xs text-slate-400">{expense.date}</p>
+                        </div>
+                        <button
+                          onClick={() => void handleDeleteExpense(expense.id)}
+                          className="shrink-0 rounded-md p-1.5 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Delete expense"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     ))
                   )}
@@ -549,19 +591,28 @@ export default function DashboardPage() {
 
               <HolographicCard>
                 <h3 className="text-lg font-semibold mb-3">Loan Snapshot</h3>
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                   {loans.length === 0 ? (
                     <p className="text-slate-400 text-sm">No loans recorded yet.</p>
                   ) : (
-                    loans.slice(0, 5).map((loan) => (
-                      <div key={loan.id} className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
-                        <p className="font-medium">{loan.loan_name}</p>
-                        <p className="text-sm text-slate-300">
-                          Balance: ${loan.remaining_balance.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          Min payment: ${loan.minimum_payment.toLocaleString()}
-                        </p>
+                    loans.slice(0, 10).map((loan) => (
+                      <div key={loan.id} className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3 flex items-start justify-between gap-2 group">
+                        <div className="min-w-0">
+                          <p className="font-medium">{loan.loan_name}</p>
+                          <p className="text-sm text-slate-300">
+                            Balance: ${loan.remaining_balance.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            Min payment: ${loan.minimum_payment.toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => void handleDeleteLoan(loan.id)}
+                          className="shrink-0 rounded-md p-1.5 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Delete loan"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     ))
                   )}
@@ -624,9 +675,8 @@ export default function DashboardPage() {
         ) : null}
 
         {activeTab === 'profile' ? (
-          <HolographicCard className="relative overflow-hidden border-cyan-500/25">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 rounded-xl" />
-            <div className="relative z-10 backdrop-blur-sm bg-black/30 border border-cyan-500/30 rounded-xl p-6">
+          <HolographicCard className="border-cyan-500/25">
+            <div className="rounded-xl border border-cyan-500/20 bg-black/20 p-6">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
                 <div>
                   <h3 className="text-2xl font-semibold flex items-center gap-2">
@@ -787,6 +837,14 @@ export default function DashboardPage() {
                     }
                     className="bg-slate-950/70 border-cyan-500/30"
                   />
+                  <Input
+                    type="date"
+                    value={newExpense.date}
+                    onChange={(event) =>
+                      setNewExpense((prev) => ({ ...prev, date: event.target.value }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
                   <Button
                     type="button"
                     onClick={handleCreateExpense}
@@ -798,6 +856,14 @@ export default function DashboardPage() {
 
                 <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-5 space-y-3">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200/90">Quick Add Loan</h4>
+                  <Input
+                    placeholder="Loan name (e.g. Student Loan)"
+                    value={newLoan.loan_name}
+                    onChange={(event) =>
+                      setNewLoan((prev) => ({ ...prev, loan_name: event.target.value }))
+                    }
+                    className="bg-slate-950/70 border-cyan-500/30"
+                  />
                   <Input
                     type="number"
                     min={0}

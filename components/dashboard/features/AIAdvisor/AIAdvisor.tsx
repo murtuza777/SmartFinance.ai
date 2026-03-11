@@ -1,363 +1,273 @@
-import { useEffect, useState } from "react"
-import { HolographicCard } from "@/components/dashboard/HolographicUI"
-import { Bot, AlertTriangle, Send, TrendingUp } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Bar, Doughnut, Line } from "react-chartjs-2"
-import { getAgentAdvice } from "@/lib/financial-client"
-
-type ChartType = "line" | "bar" | "doughnut" | null
+﻿import { useEffect, useRef, useState } from "react";
+import { Bot, Loader2, Search, Send, Sparkles, Trash2 } from "lucide-react";
+import {
+  getAgentAdvice,
+  type AgentAdviceResponse,
+} from "@/lib/financial-client";
 
 type Message = {
-  role: "user" | "assistant"
-  content: string
-  timestamp: Date
-  modelUsed?: string
-  visualData: {
-    type: ChartType
-    data: unknown
-  }
-}
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  modelUsed?: string;
+};
 
 interface AIAdvisorProps {
   userData: {
-    monthlyIncome: number
-    monthlyExpenses: number
-    country: string
-  }
+    monthlyIncome: number;
+    monthlyExpenses: number;
+    country: string;
+  };
 }
 
-function detectVisualizationType(query: string): ChartType {
-  const normalized = query.toLowerCase()
+const CHAT_STORAGE_KEY = "burryai:advisor:chat:v2";
 
-  const rules: Array<{ type: Exclude<ChartType, null>; keywords: string[] }> = [
-    {
-      type: "line",
-      keywords: ["trend", "over time", "timeline", "progress", "forecast", "projection"]
-    },
-    {
-      type: "bar",
-      keywords: ["compare", "comparison", "difference", "versus", "breakdown"]
-    },
-    {
-      type: "doughnut",
-      keywords: ["distribution", "allocation", "split", "ratio", "percentage"]
-    }
-  ]
+const START_MESSAGE: Message = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "Hi! I am BurryAI. Ask anything about budgeting, debt, spending, and savings.",
+  timestamp: new Date(),
+  modelUsed: "system",
+};
 
-  for (const rule of rules) {
-    if (rule.keywords.some((keyword) => normalized.includes(keyword))) {
-      return rule.type
-    }
-  }
+const QUICK_PROMPTS = [
+  "Analyze my spending breakdown",
+  "How can I save more monthly?",
+  "Build me a debt payoff plan",
+  "Compare income vs expenses",
+];
 
-  return null
-}
-
-function generateVisualizationData(type: Exclude<ChartType, null>, userData: AIAdvisorProps["userData"]) {
-  const monthlyNet = Math.max(userData.monthlyIncome - userData.monthlyExpenses, 0)
-
-  if (type === "line") {
-    const points = Array.from({ length: 6 }, (_, index) => Math.round(monthlyNet * (index + 1)))
-    return {
-      labels: ["M1", "M2", "M3", "M4", "M5", "M6"],
-      datasets: [
-        {
-          label: "Projected Savings",
-          data: points,
-          borderColor: "rgba(34, 211, 238, 1)",
-          backgroundColor: "rgba(34, 211, 238, 0.2)",
-          fill: true,
-          tension: 0.35
-        }
-      ]
-    }
-  }
-
-  if (type === "bar") {
-    return {
-      labels: ["Income", "Expenses", "Net"],
-      datasets: [
-        {
-          data: [userData.monthlyIncome, userData.monthlyExpenses, monthlyNet],
-          backgroundColor: [
-            "rgba(34, 211, 238, 0.85)",
-            "rgba(244, 63, 94, 0.85)",
-            "rgba(16, 185, 129, 0.85)"
-          ]
-        }
-      ]
-    }
-  }
-
-  const expensesShare = userData.monthlyIncome > 0 ? (userData.monthlyExpenses / userData.monthlyIncome) * 100 : 0
-  const savingsShare = Math.max(100 - expensesShare, 0)
-  const essential = Math.min(Math.round(expensesShare * 0.7), 100)
-  const nonEssential = Math.min(Math.round(expensesShare * 0.3), 100)
-
-  return {
-    labels: ["Essential", "Non-Essential", "Savings"],
-    datasets: [
-      {
-        data: [essential, nonEssential, Math.round(savingsShare)],
-        backgroundColor: [
-          "rgba(56, 189, 248, 0.85)",
-          "rgba(251, 113, 133, 0.85)",
-          "rgba(52, 211, 153, 0.85)"
-        ]
-      }
-    ]
-  }
-}
+const AGENT_STEPS = [
+  "Understanding request",
+  "Searching financial context",
+  "Reasoning on your data",
+  "Drafting response",
+];
 
 export function AIAdvisor({ userData }: AIAdvisorProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        "Ask me about budgeting, debt payoff, savings planning, or income ideas. I will use your backend financial data.",
-      timestamp: new Date(),
-      modelUsed: "system",
-      visualData: {
-        type: null,
-        data: null
-      }
-    }
-  ])
-  const [inputMessage, setInputMessage] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(messages[0] ?? null)
+  const [messages, setMessages] = useState<Message[]>([START_MESSAGE]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [agentStep, setAgentStep] = useState(0);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const chatContainer = document.getElementById("chat-messages")
-    const messagesContainer = document.getElementById("messages-container")
-    if (!chatContainer || !messagesContainer) return
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
-    chatContainer.scrollTop = messagesContainer.scrollHeight
-    const timeout = setTimeout(() => {
-      chatContainer.scrollTop = messagesContainer.scrollHeight
-    }, 100)
-    return () => clearTimeout(timeout)
-  }, [messages])
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Array<
+        Omit<Message, "timestamp"> & { timestamp: string }
+      >;
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      setMessages(
+        parsed.map((m) => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        })),
+      );
+    } catch {
+      // ignore malformed cache
+    }
+  }, []);
 
-  async function sendMessage() {
-    const trimmed = inputMessage.trim()
-    if (!trimmed || isLoading) return
+  useEffect(() => {
+    const payload = messages.map((m) => ({
+      ...m,
+      timestamp: m.timestamp.toISOString(),
+    }));
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(payload));
+  }, [messages]);
 
-    const visualType = detectVisualizationType(trimmed)
-    const visualData =
-      visualType === null ? null : generateVisualizationData(visualType, userData)
+  useEffect(() => {
+    if (!isLoading) {
+      setAgentStep(0);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setAgentStep((s) => (s + 1) % AGENT_STEPS.length);
+    }, 1200);
+    return () => window.clearInterval(id);
+  }, [isLoading]);
+
+  function resetChat() {
+    const fresh = { ...START_MESSAGE, timestamp: new Date() };
+    setMessages([fresh]);
+    setInputMessage("");
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+  }
+
+  async function sendMessage(textOverride?: string) {
+    const text = (textOverride ?? inputMessage).trim();
+    if (!text || isLoading) return;
 
     const userMessage: Message = {
+      id: `u-${Date.now()}`,
       role: "user",
-      content: trimmed,
+      content: text,
       timestamp: new Date(),
-      visualData: {
-        type: visualType,
-        data: visualData
-      }
-    }
-
-    setMessages((previous) => [...previous, userMessage])
-    setSelectedMessage(userMessage)
-    setInputMessage("")
-    setIsLoading(true)
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setInputMessage("");
+    setIsLoading(true);
 
     try {
-      const agent = await getAgentAdvice(trimmed)
+      const agent: AgentAdviceResponse = await getAgentAdvice(text);
       const assistantMessage: Message = {
+        id: `a-${Date.now()}`,
         role: "assistant",
         content: agent.response,
         timestamp: new Date(),
         modelUsed: agent.model_used,
-        visualData: userMessage.visualData
-      }
-
-      setMessages((previous) => [...previous, assistantMessage])
-      setSelectedMessage(assistantMessage)
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to generate advice right now."
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: message,
-        timestamp: new Date(),
-        modelUsed: "error",
-        visualData: {
-          type: null,
-          data: null
-        }
-      }
-
-      setMessages((previous) => [...previous, assistantMessage])
-      setSelectedMessage(assistantMessage)
+      const msg =
+        error instanceof Error ? error.message : "Unable to generate advice now.";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `e-${Date.now()}`,
+          role: "assistant",
+          content: msg,
+          timestamp: new Date(),
+          modelUsed: "error",
+        },
+      ]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
+      inputRef.current?.focus();
     }
   }
 
   return (
-    <div className="flex w-full gap-6 max-h-[80vh] min-h-[600px]">
-      <HolographicCard className="w-1/2 flex flex-col h-full">
-        <div className="flex items-center justify-between gap-2 p-4 border-b border-cyan-500/20 bg-slate-950/40">
-          <div className="flex items-center gap-2">
-            <Bot className="w-6 h-6 text-cyan-500" />
-            <h3 className="text-xl font-semibold">AI Financial Advisor</h3>
+    <div className="w-full flex justify-center">
+      <div className="w-full max-w-5xl">
+        <div className="h-[calc(100vh-11rem)] min-h-[620px] rounded-2xl border border-slate-800 bg-[#020617]/95 shadow-[0_20px_60px_rgba(2,6,23,0.55)] flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/70 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 border border-cyan-400/30">
+                <Bot className="h-5 w-5 text-cyan-300" />
+              </div>
+              <div>
+                <h3 className="text-slate-100 font-semibold">BurryAI Advisor</h3>
+                <p className="text-xs text-slate-400">
+                  Monthly income ${userData.monthlyIncome.toLocaleString()} • Expenses $
+                  {userData.monthlyExpenses.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-1 rounded-full border border-cyan-500/20 bg-cyan-500/5 px-3 py-1 text-xs text-cyan-300">
+                <Sparkles className="h-3 w-3" />
+                AI Agent
+              </div>
+              <button
+                type="button"
+                onClick={resetChat}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900/80 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            </div>
           </div>
-          <p className="text-xs uppercase tracking-[0.16em] text-cyan-200/80">Backend Agent</p>
-        </div>
 
-        <div
-          id="chat-messages"
-          className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
-        >
-          <div id="messages-container" className="space-y-4 p-4">
-            {messages.map((message, index) => (
+          {isLoading ? (
+            <div className="border-b border-slate-800 bg-slate-950/60 px-5 py-2 text-xs text-cyan-200 flex items-center gap-2">
+              <Search className="h-3.5 w-3.5 animate-pulse" />
+              {AGENT_STEPS[agentStep]}
+            </div>
+          ) : null}
+
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+            {messages.map((message) => (
               <div
-                key={`${message.role}-${index}`}
+                key={message.id}
                 className={`flex ${message.role === "assistant" ? "justify-start" : "justify-end"}`}
-                onClick={() => setSelectedMessage(message)}
               >
                 <div
-                  className={`max-w-[80%] rounded-xl p-4 cursor-pointer transition-all duration-300 hover:scale-[1.01] ${
+                  className={`max-w-[88%] rounded-2xl px-4 py-3 ${
                     message.role === "assistant"
-                      ? "bg-slate-900/85 border border-cyan-500/20 text-white"
-                      : "bg-cyan-500/90 text-slate-950"
-                  } ${selectedMessage === message ? "ring-2 ring-cyan-500" : ""}`}
+                      ? "bg-slate-900 border border-slate-800 text-slate-100"
+                      : "bg-gradient-to-br from-cyan-400 to-cyan-300 text-slate-950"
+                  }`}
                 >
-                  <p className="whitespace-pre-wrap font-sans">{message.content}</p>
-                  <div className="text-xs text-slate-400 mt-2">
-                    {message.timestamp.toLocaleTimeString()}
-                    {message.modelUsed ? ` | ${message.modelUsed}` : ""}
-                  </div>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {message.content}
+                  </p>
+                  <p className="mt-2 text-[11px] opacity-70">
+                    {message.timestamp.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
                 </div>
               </div>
             ))}
 
             {isLoading ? (
               <div className="flex justify-start">
-                <div className="bg-slate-900/85 border border-cyan-500/20 text-white rounded-xl p-4">
-                  <div className="flex gap-2">
-                    <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce [animation-delay:-.3s]" />
-                    <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce [animation-delay:-.5s]" />
-                  </div>
+                <div className="rounded-2xl bg-slate-900 border border-cyan-500/20 px-4 py-3 text-xs text-slate-300 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                  Agent is working...
                 </div>
               </div>
             ) : null}
+
+            <div ref={chatEndRef} />
           </div>
-        </div>
 
-        <div className="p-4 border-t border-cyan-500/20 bg-slate-950/40">
-          <div className="flex gap-2">
-            <Input
-              value={inputMessage}
-              onChange={(event) => setInputMessage(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault()
-                  void sendMessage()
-                }
-              }}
-              placeholder="Ask about your finances..."
-              className="flex-grow bg-slate-950/75 border-cyan-500/30 focus-visible:ring-cyan-300/40"
-            />
-            <button
-              onClick={() => void sendMessage()}
-              disabled={isLoading || !inputMessage.trim()}
-              className="p-2 rounded-lg bg-cyan-400 text-slate-950 hover:bg-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </HolographicCard>
-
-      <HolographicCard className="w-1/2 flex flex-col overflow-hidden">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-6 h-6 text-cyan-500" />
-          <h3 className="text-xl font-semibold">Visual Insights</h3>
-        </div>
-
-        <div className="flex-grow flex items-center justify-center p-4">
-          {selectedMessage?.visualData.type === "line" ? (
-            <div className="w-full h-full">
-              <Line
-                data={selectedMessage.visualData.data as never}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      grid: { color: "rgba(255, 255, 255, 0.1)" },
-                      ticks: { color: "white" }
-                    },
-                    x: {
-                      grid: { color: "rgba(255, 255, 255, 0.1)" },
-                      ticks: { color: "white" }
-                    }
-                  }
-                }}
-              />
-            </div>
-          ) : null}
-
-          {selectedMessage?.visualData.type === "bar" ? (
-            <div className="w-full h-full">
-              <Bar
-                data={selectedMessage.visualData.data as never}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      grid: { color: "rgba(255, 255, 255, 0.1)" },
-                      ticks: { color: "white" }
-                    },
-                    x: {
-                      grid: { color: "rgba(255, 255, 255, 0.1)" },
-                      ticks: { color: "white" }
-                    }
-                  }
-                }}
-              />
-            </div>
-          ) : null}
-
-          {selectedMessage?.visualData.type === "doughnut" ? (
-            <div className="w-full h-full">
-              <Doughnut
-                data={selectedMessage.visualData.data as never}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: "bottom",
-                      labels: { color: "white" }
-                    }
-                  }
-                }}
-              />
-            </div>
-          ) : null}
-
-          {!selectedMessage?.visualData.type ? (
-            <div className="text-center text-slate-400">
-              <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-cyan-500/50" />
-              <p>No visualization available for this query.</p>
-              <p className="text-sm mt-2">Try asking about trends, comparisons, or distributions.</p>
-              <div className="mt-6 space-y-2 text-left max-w-md mx-auto">
-                <p className="text-sm text-cyan-500">Example queries:</p>
-                <p className="text-sm">"Show me the trend of my savings over time"</p>
-                <p className="text-sm">"Compare my income and expenses"</p>
-                <p className="text-sm">"What is the distribution of my monthly spending?"</p>
+          {messages.length <= 2 ? (
+            <div className="border-t border-slate-800 bg-slate-950/80 px-4 py-3">
+              <div className="flex flex-wrap gap-2">
+                {QUICK_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => void sendMessage(prompt)}
+                    disabled={isLoading}
+                    className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-3 py-1.5 text-xs text-cyan-300 hover:bg-cyan-500/15 disabled:opacity-40"
+                  >
+                    {prompt}
+                  </button>
+                ))}
               </div>
             </div>
           ) : null}
+
+          <div className="border-t border-slate-800 bg-slate-950/90 p-4">
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendMessage();
+                  }
+                }}
+                placeholder="Ask about budgeting, savings, debt, or spending..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20"
+              />
+              <button
+                onClick={() => void sendMessage()}
+                disabled={isLoading || !inputMessage.trim()}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-500 text-slate-950 disabled:opacity-40"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
-      </HolographicCard>
+      </div>
     </div>
-  )
+  );
 }
+
