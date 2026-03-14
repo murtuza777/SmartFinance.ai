@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, LogOut, TrendingUp, Wallet, CreditCard, PieChart, UserRound, Trash2 } from 'lucide-react'
+import { LogOut, TrendingUp, Wallet, CreditCard, PieChart, UserRound, Trash2 } from 'lucide-react'
+import FinanceLoader from '@/components/ui/FinanceLoader'
 import { Line, Doughnut } from 'react-chartjs-2'
 import {
   ArcElement,
@@ -409,11 +410,7 @@ export default function DashboardPage() {
   ]
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white grid place-items-center">
-        <Loader2 className="h-9 w-9 animate-spin text-cyan-400" />
-      </div>
-    )
+    return <FinanceLoader />
   }
 
   return (
@@ -463,7 +460,7 @@ export default function DashboardPage() {
                       onClick={() => setActiveTab(tab.id)}
                       className={`flex-1 rounded-xl text-xs sm:text-sm font-medium px-3 py-2 ${
                         activeTab === tab.id
-                          ? 'bg-cyan-300 text-slate-950 border-cyan-200 shadow-[0_10px_30px_rgba(34,211,238,0.45)] hover:bg-cyan-300 hover:text-slate-950'
+                          ? 'bg-cyan-300 text-slate-50 border-cyan-200 shadow-[0_10px_30px_rgba(34,211,238,0.45)] hover:bg-cyan-300 hover:text-slate-50 focus-visible:bg-cyan-300 focus-visible:text-slate-50'
                           : 'text-slate-300'
                       }`}
                     >
@@ -848,7 +845,7 @@ export default function DashboardPage() {
                   <Button
                     type="button"
                     onClick={handleCreateExpense}
-                    className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                    className="rounded-xl px-4 py-2.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold shadow-[0_10px_30px_rgba(34,211,238,0.35)] border border-cyan-300/60"
                   >
                     Add expense
                   </Button>
@@ -908,7 +905,7 @@ export default function DashboardPage() {
                   <Button
                     type="button"
                     onClick={handleCreateLoan}
-                    className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                    className="rounded-xl px-4 py-2.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold shadow-[0_10px_30px_rgba(34,211,238,0.35)] border border-cyan-300/60"
                   >
                     Add loan
                   </Button>
@@ -919,7 +916,7 @@ export default function DashboardPage() {
                 <Button
                   onClick={handleSaveProfile}
                   disabled={saving || isGuest}
-                  className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold"
+                  className="rounded-xl px-4 py-2.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold shadow-[0_10px_30px_rgba(34,211,238,0.35)] border border-cyan-300/60"
                 >
                   {saving ? 'Saving...' : 'Save profile'}
                 </Button>

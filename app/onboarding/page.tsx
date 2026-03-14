@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import FinanceLoader from '@/components/ui/FinanceLoader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -146,11 +146,7 @@ export default function OnboardingPage() {
   }
 
   if (loading || authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white grid place-items-center">
-        <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
-      </div>
-    )
+    return <FinanceLoader />
   }
 
   return (

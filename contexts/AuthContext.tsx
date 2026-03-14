@@ -26,6 +26,8 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 
 export const useAuth = () => useContext(AuthContext)
 
+import FinanceLoader from '@/components/ui/FinanceLoader'
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null)
   const [guestUser, setGuestUser] = useState<GuestUser | null>(null)
@@ -111,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {loading ? <FinanceLoader /> : children}
     </AuthContext.Provider>
   )
 }

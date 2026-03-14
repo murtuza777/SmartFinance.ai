@@ -118,7 +118,7 @@ export default function LandingPage() {
           <BrandIdentity size={36} textClassName="text-2xl font-bold text-cyan-400" />
           <HolographicButton
             onClick={() => router.push('/login')}
-            className="px-6 py-2 min-w-[150px] flex items-center justify-center bg-cyan-500 text-black"
+            className="min-w-[150px] rounded-xl px-5 py-2.5 bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-slate-50 border-cyan-300/80 shadow-[0_10px_30px_rgba(34,211,238,0.55)] hover:brightness-110 hover:text-slate-50"
           >
             Sign in
           </HolographicButton>
@@ -144,7 +144,7 @@ export default function LandingPage() {
               <HolographicButton
                 onClick={() => router.push('/login')}
                 icon={Rocket}
-                className="bg-cyan-500 text-black"
+                className="bg-cyan-500 text-slate-50 hover:bg-cyan-400 hover:text-slate-50"
               >
                 Get Started
               </HolographicButton>
@@ -271,7 +271,7 @@ export default function LandingPage() {
             </p>
             <HolographicButton
               onClick={() => router.push('/login')}
-              className="bg-cyan-500 text-black px-8 py-3"
+              className="bg-cyan-500 text-slate-50 hover:bg-cyan-400 hover:text-slate-50 px-8 py-3"
               icon={Rocket}
             >
               Sign in
